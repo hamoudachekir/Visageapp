@@ -1,0 +1,22 @@
+name: analyse_faciale
+description: MVP analyse faciale — capture guidée puis prédiction âge & sexe.
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+  flutter: ">=3.19.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  camera: ^0.11.0
+  google_mlkit_face_detection: ^0.12.0
+  http: ^1.2.0
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

@@ -1,0 +1,71 @@
+# ───────────────────────── Données / modèles (trop volumineux pour Git) ─────────────────────────
+# Datasets d'images (à stocker hors Git : Kaggle, Drive, DVC…)
+Oily-Dry-Skin-Types/
+*.zip
+*.tar
+*.tar.gz
+
+# Poids de modèles
+*.pt
+*.pth
+*.onnx
+*.h5
+*.tflite
+*.pb
+*.caffemodel
+*.weights
+
+# ───────────────────────── Flutter / Dart (frontend) ─────────────────────────
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/build/
+frontend/.pub-cache/
+frontend/.pub/
+frontend/pubspec.lock
+
+# Dossiers de plateforme régénérables via `flutter create .`
+frontend/android/
+frontend/ios/
+frontend/web/
+frontend/windows/
+frontend/linux/
+frontend/macos/
+
+# Divers Flutter
+**/doc/api/
+**/*.g.dart
+*.iml
+
+# ───────────────────────── Python / FastAPI (backend) ─────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+backend/.venv/
+backend/venv/
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Variables d'environnement / secrets
+.env
+.env.*
+*.local
+
+# ───────────────────────── Notebooks ─────────────────────────
+.ipynb_checkpoints/
+
+# ───────────────────────── OS / IDE ─────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# Fichiers temporaires de travail
+tier1_dump.txt

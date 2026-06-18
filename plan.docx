@@ -1,0 +1,249 @@
+# Plan de projet — Application d'analyse faciale & recommandation parapharmaceutique
+
+**Type** : Application mobile (Flutter) + backend (FastAPI) + couche IA (Vision + LLM/RAG)
+**Objectif** : Aide à la décision pour les experts en parapharmacie — 
+analyse du visage, profilage du client, recommandation produit justifiée.
+
+---
+
+## 1. Vue d'ensemble fonctionnelle
+
+Le système combine **trois sources d'information** pour produire une recommandation :
+
+1. **Analyse visuelle** (modèles CV) : âge apparent, sexe, attributs (barbe/moustache/lunettes), type de peau, concerns localisés (rides, points noirs, acné, pores, taches, cernes), type de cheveux.
+2. **Formulaire utilisateur** : âge déclaré, sexe, type de peau (optionnel), préoccupations principales, allergies/contre-indications, budget, objectifs.
+3. **Base de connaissances produits** : descriptions, ingrédients, indications, contre-indications, types de peau ciblés.
+
+Le tout est fusionné en un **profil structuré** par un LLM, qui sert de requête à une **recherche sémantique (RAG)** sur le catalogue produit, suivie d'une **justification générée**.
+
+---
+
+## 2. Architecture technique globale
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    APP MOBILE (Flutter)                       │
+│  Capture guidée 3 vues · Formulaire · Affichage reco + justif │
+└───────────────────────────┬─────────────────────────────────┘
+                            │ HTTPS / REST (JSON + multipart images)
+┌───────────────────────────▼─────────────────────────────────┐
+│                    BACKEND (FastAPI)                          │
+│  Orchestration · Auth · Validation · Gestion de session       │
+│                                                               │
+│  ┌──────────────┐  ┌───────────────┐  ┌──────────────────┐   │
+│  │ Couche VISION │  │ Couche PROFIL │  │ Couche RECO/RAG  │   │
+│  │ (modèles CV)  │─►│ (LLM → JSON)  │─►│ vector search +  │   │
+│  │               │  │               │  │ filtres + LLM    │   │
+│  └──────────────┘  └───────────────┘  └────────┬─────────┘   │
+└──────────────────────────────────────────────┬─┼────────────┘
+                                                │ │
+                  ┌─────────────────────────────┘ └──────────────┐
+                  ▼                                               ▼
+        ┌──────────────────┐                         ┌──────────────────────┐
+        │ PostgreSQL        │                         │  LLM (Groq / LLaMA)  │
+        │ + pgvector        │                         │  profil + justif      │
+        │ (produits +       │                         └──────────────────────┘
+        │  embeddings BGE-M3)│
+        └──────────────────┘
+```
+
+**Choix d'inférence (important pour le mobile)** :
+- Modèles CV lourds (segmentation U-Net, attributs) → **inférence côté serveur** (FastAPI). Le mobile envoie les images, reçoit les résultats.
+- Détection/cadrage du visage → peut tourner **on-device** (MediaPipe / TFLite) uniquement pour **guider la capture** (cadre, qualité, éclairage) avant envoi.
+- Justification : latence acceptable côté serveur.
+
+---
+
+## 3. Composants détaillés
+
+### 3.1 Application mobile (Flutter)
+
+| Écran | Fonction |
+|---|---|
+| Capture guidée | Cadrage temps réel, contrôle qualité (netteté, luminosité, visage centré), capture des **3 vues** (face + 2 profils 45° + frontale cheveux naturels) |
+| Formulaire | Âge, sexe, type de peau (optionnel), préoccupations, allergies, budget, objectifs |
+| Chargement | Upload + suivi de l'analyse (SSE/polling) |
+| Résultats | Profil visuel (heatmaps des concerns), scores de sévérité |
+| Recommandation | Liste de produits classés + justification par produit |
+
+> **Packages Flutter** : `camera`, `image_picker`, `google_mlkit_face_detection` (cadrage on-device), `dio`/`http`, `provider`/`riverpod` (état).
+
+### 3.2 Backend (FastAPI)
+
+**Endpoints principaux** :
+
+| Méthode | Route | Rôle |
+|---|---|---|
+| `POST` | `/v1/analyze` | Reçoit les images → renvoie l'analyse CV (attributs, âge, concerns, scores) |
+| `POST` | `/v1/profile` | Fusionne analyse CV + formulaire → profil structuré (LLM) |
+| `POST` | `/v1/recommend` | Profil → produits classés + justification (RAG) |
+| `POST` | `/v1/session` | Orchestration bout-en-bout (option « tout-en-un ») |
+| `GET` | `/v1/products/{id}` | Détail produit |
+
+> **Atouts** : validation Pydantic, async natif (utile pour paralléliser les modèles CV), streaming SSE comme sur ton projet Iliade.
+
+### 3.3 Couche Vision (rappel — détaillée au tour précédent)
+
+| Tâche | Modèle | Données |
+|---|---|---|
+| Détection/alignement | RetinaFace / MediaPipe (pré-entraîné) | — |
+| Attributs (sexe, barbe, moustache, lunettes) | Classifieur multi-label (ResNet/EfficientNet) | CelebA |
+| Âge | DEX / SSR-Net / MiVOLO | UTKFace, IMDB-WIKI |
+| Type de peau | Classification CNN par ROI | Annotation maison + datasets cosmétiques |
+| Concerns localisés | U-Net multi-classes (segmentation) ou YOLOv8/v11 | Roboflow + FFHQ + annotation maison |
+| Type de cheveux | ResNet18 fine-tuné (+ segmentation optionnelle) | Hair Type Dataset + annotation maison |
+
+> **Gating** : les attributs (barbe, lunettes) pondèrent la fiabilité des ROI peau → champ `reliability` par concern.
+
+### 3.4 Couche Profil (LLM → JSON structuré)
+
+Le LLM reçoit les sorties CV + le formulaire et produit un **profil structuré strict** (JSON, pas de texte libre), pour rester exploitable par la recherche :
+
+```json
+{
+  "demographics": { "age_estime": 34, "age_declare": 33, "sexe": "F" },
+  "peau": {
+    "type": "mixte",
+    "concerns": [
+      { "label": "rides_ridules", "zone": "contour_yeux", "severite": 62, "reliability": "haute" },
+      { "label": "cernes", "zone": "sous_orbitaire", "severite": 71, "reliability": "moyenne" },
+      { "label": "pores_dilates", "zone": "zone_T", "severite": 48, "reliability": "haute" }
+    ],
+    "hydratation": "faible"
+  },
+  "cheveux": { "type": "ondules" },
+  "contraintes": { "allergies": ["parfum"], "budget_max": 40, "objectifs": ["anti-age", "hydratation"] },
+  "resume_textuel": "Femme ~34 ans, peau mixte déshydratée, rides périoculaires marquées et cernes prononcés, pores dilatés en zone T. Recherche anti-âge et hydratation, sensible aux parfums."
+}
+```
+
+### 3.5 Base de connaissances produits + RAG
+
+**Schéma produit (PostgreSQL + pgvector)** :
+
+```sql
+CREATE TABLE produits (
+  id              SERIAL PRIMARY KEY,
+  nom             TEXT,
+  marque          TEXT,
+  categorie       TEXT,              -- soin, sérum, crème, nettoyant...
+  description     TEXT,
+  ingredients     TEXT[],
+  indications      TEXT[],           -- concerns ciblés : rides, cernes, acné...
+  types_peau      TEXT[],            -- sèche, grasse, mixte, normale, sensible
+  contre_indications TEXT[],         -- allergènes, ingrédients à éviter
+  prix            NUMERIC,
+  embedding       VECTOR(1024)       -- BGE-M3
+);
+CREATE INDEX ON produits USING hnsw (embedding vector_cosine_ops);
+```
+
+**Embeddings** : BGE-M3 (comme ton projet pentest) sur un texte concaténant `nom + description + indications + types_peau`.
+
+### 3.6 Moteur de recommandation — flux détaillé
+
+C'est le cœur du système. **Décision d'architecture clé : le LLM ne choisit JAMAIS un produit librement** (risque d'hallucination de produits inexistants). On procède en deux temps :
+
+1. **Récupération (retrieval) contrainte** :
+   - **Recherche vectorielle** : embedding du `resume_textuel` du profil → top-K produits par similarité cosinus.
+   - **Filtrage structuré (hybride)** : on intersecte avec des filtres SQL durs sur les attributs détectés —
+     - exclure les `contre_indications` qui croisent les `allergies` du profil,
+     - filtrer sur `types_peau` compatibles,
+     - filtrer sur `prix <= budget_max`,
+     - prioriser les `indications` couvrant les concerns à forte sévérité **et** `reliability` haute.
+2. **Classement + justification (LLM)** : le LLM reçoit **uniquement** les K produits retenus + le profil, et produit un **classement + une justification par produit reliée aux caractéristiques détectées** (« sérum recommandé pour vos cernes prononcés et votre peau déshydratée, sans parfum »).
+
+> La recherche hybride (vecteur + filtres) est indispensable : la pure similarité sémantique ne sait pas exclure un allergène ou respecter un budget.
+
+---
+
+## 4. Stratégie de données
+
+| Bloc | Source | Action |
+|---|---|---|
+| Attributs faciaux | CelebA | Transfer learning direct |
+| Âge | UTKFace, IMDB-WIKI | Fine-tuning |
+| Concerns peau | Roboflow Universe, FFHQ, datasets commerciaux | **Annotation maison (Roboflow/CVAT)** + augmentation |
+| Type de peau | Datasets cosmétiques | Annotation maison |
+| Cheveux | Hair Type Dataset | Fine-tuning + annotation si granularité fine |
+| Catalogue produits | Fournisseur parapharmacie / scraping autorisé | Nettoyage + structuration + embeddings |
+
+> **Protocole de capture standardisé** (cf. tour précédent) : 3 vues, éclairage diffus, ≥1080p, sans maquillage, distance fixe.
+
+---
+
+## 5. Planning par phases (cadre CRISP-DM)
+
+| Phase | Contenu | Durée indicative |
+|---|---|---|
+| **0. Cadrage** | Périmètre exact avec experts, protocole de capture, choix des concerns pilotes, conformité RGPD | 1–2 sem. |
+| **1. Données** | Collecte/sélection datasets, annotation maison, structuration catalogue produits + embeddings | 3–4 sem. |
+| **2. Modèles CV** | Détection+alignement, attributs, âge, 2 concerns pilotes, type de peau, cheveux | 4–6 sem. |
+| **3. Couche LLM + RAG** | Génération profil structuré, ingestion produits dans pgvector, recherche hybride, justification | 2–3 sem. |
+| **4. Backend FastAPI** | Endpoints, orchestration, inférence, gestion session, sécurité | 2–3 sem. |
+| **5. App Flutter** | Capture guidée, formulaire, affichage résultats + reco | 3–4 sem. |
+| **6. Intégration & éval** | Tests bout-en-bout, métriques, validation experts, tests phototypes | 2 sem. |
+| **7. Déploiement** | Conteneurisation, hébergement, monitoring | 1–2 sem. |
+
+> Phases 2 et 3 partiellement parallélisables. **MVP recommandé** : détection + attributs + âge + 1–2 concerns + RAG sur un sous-catalogue, avant d'étendre.
+
+---
+
+## 6. Stack technique complète
+
+| Couche | Technologies |
+|---|---|
+| Mobile | Flutter (Dart), camera, ML Kit (cadrage), riverpod |
+| Backend | FastAPI (Python), Pydantic, Uvicorn, async |
+| Vision | PyTorch / Ultralytics (YOLO), MediaPipe, OpenCV |
+| LLM | LLaMA via Groq (profil + justification) |
+| RAG / Vecteur | PostgreSQL + pgvector, embeddings BGE-M3, recherche HNSW cosinus |
+| BD produits | PostgreSQL |
+| Infra | Docker, GPU pour l'inférence, reverse proxy (Nginx), HTTPS |
+
+---
+
+## 7. Métriques d'évaluation
+
+| Niveau | Métriques |
+|---|---|
+| Âge | MAE (années) |
+| Attributs / type peau / cheveux | Accuracy, F1 par classe |
+| Concerns segmentés | IoU / Dice, F1 détection |
+| Accord humain/modèle | Taux d'accord avec experts parapharmacie |
+| Recherche RAG | Precision@K, Recall@K, MRR |
+| Recommandation | Pertinence jugée par experts, taux d'acceptation |
+| Système | Latence bout-en-bout, robustesse par phototype |
+
+---
+
+## 8. Points de vigilance
+
+1. **Positionnement réglementaire** : « aide à la décision » / cosmétique, **pas un diagnostic médical** (sinon risque de classification en dispositif médical — MDR en UE). À documenter explicitement dans le mémoire.
+2. **RGPD / biométrie** : l'image de visage est une donnée sensible. Consentement explicite, minimisation, **ne pas conserver les images brutes** si possible (traiter puis supprimer, ne garder que le profil structuré anonymisé).
+3. **Biais phototypes** : datasets publics biaisés vers les peaux claires. Mesurer la performance par phototype, le mentionner comme limite.
+4. **Anti-hallucination** : le LLM justifie/classe mais ne génère jamais de produit hors catalogue (retrieval contraint).
+5. **Latence mobile** : inférence lourde côté serveur, feedback de progression (SSE).
+6. **Standardisation de capture** : facteur n°1 de fiabilité — guider l'utilisateur en temps réel.
+
+---
+
+## 9. Risques & mitigations
+
+| Risque | Mitigation |
+|---|---|
+| Pas de dataset peau complet | Annotation maison incrémentale, démarrer sur concerns pilotes |
+| Conditions de capture variables | Cadrage guidé on-device + contrôle qualité avant envoi |
+| Hallucination de produits | Recherche hybride vecteur + filtres SQL, LLM borné aux candidats |
+| Surcharge serveur (inférence) | Batching, modèles légers (MobileNet/SSR-Net), file d'attente |
+| Conformité données | Anonymisation, suppression des images, consentement |
+
+---
+
+## 10. Livrables (mémoire)
+
+- Diagrammes UML (cas d'usage, séquence du flux de reco, activité) + diagramme d'architecture.
+- Pipeline CV documenté (modèles, datasets, métriques).
+- Schéma de la base de connaissances + stratégie d'embeddings.
+- Démonstration MVP bout-en-bout.
+- Évaluation quantitative + validation experts.
