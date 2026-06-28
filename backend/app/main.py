@@ -13,7 +13,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -116,6 +116,59 @@ def update_pharmacy(
         raise HTTPException(status_code=422, detail="Le nom ne peut pas être vide.")
     for field, value in data.items():
         setattr(pharmacy, field, value.strip() if isinstance(value, str) else value)
+    db.commit()
+    db.refresh(pharmacy)
+    return PharmacyOut.from_pharmacy(pharmacy)
+
+
+MAX_LOGO_BYTES = 2 * 1024 * 1024  # 2 Mo — garde-fou logo
+
+
+@app.post("/v1/pharmacy/logo", response_model=PharmacyOut)
+async def upload_logo(
+    image: UploadFile = File(...),
+    pharmacy: Pharmacy = Depends(auth_module.get_current_pharmacy),
+    db: Session = Depends(get_db),
+) -> PharmacyOut:
+    """Téléverse / remplace le logo (stocké en octets dans la base)."""
+    if image.content_type not in ALLOWED_CONTENT_TYPES:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Type non supporté : {image.content_type}.",
+        )
+    raw = await image.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Image vide.")
+    if len(raw) > MAX_LOGO_BYTES:
+        raise HTTPException(status_code=413, detail="Logo trop volumineux (max 2 Mo).")
+    pharmacy.logo_bytes = raw
+    pharmacy.logo_mime = image.content_type
+    db.commit()
+    db.refresh(pharmacy)
+    return PharmacyOut.from_pharmacy(pharmacy)
+
+
+@app.get("/v1/pharmacy/logo")
+def get_logo(
+    pharmacy: Pharmacy = Depends(auth_module.get_current_pharmacy),
+) -> Response:
+    """Renvoie les octets du logo de la pharmacie courante (404 si absent)."""
+    if pharmacy.logo_bytes is None:
+        raise HTTPException(status_code=404, detail="Aucun logo.")
+    return Response(
+        content=pharmacy.logo_bytes,
+        media_type=pharmacy.logo_mime or "image/png",
+    )
+
+
+@app.delete("/v1/pharmacy/logo", response_model=PharmacyOut)
+def delete_logo(
+    pharmacy: Pharmacy = Depends(auth_module.get_current_pharmacy),
+    db: Session = Depends(get_db),
+) -> PharmacyOut:
+    """Supprime le logo."""
+    pharmacy.logo_bytes = None
+    pharmacy.logo_mime = None
     db.commit()
     db.refresh(pharmacy)
     return PharmacyOut.from_pharmacy(pharmacy)
