@@ -1,21 +1,37 @@
-"""Backend FastAPI — MVP analyse faciale (âge + sexe).
+"""Backend FastAPI — Lumina (analyse faciale + auth pharmacie multi-tenant).
 
-Périmètre actuel : un seul endpoint `/v1/analyze` qui reçoit la photo de face
-capturée par l'app Flutter et renvoie l'âge estimé + le sexe, via InsightFace.
-
-Le reste du plan (profil LLM, RAG, recommandation) viendra plus tard.
+Endpoints :
+- `/v1/analyze`        : photo de face -> âge estimé + sexe (InsightFace).
+- `/v1/auth/login`     : email + mot de passe -> JWT.
+- `/v1/auth/me`        : pharmacie courante (protégé).
+- `/v1/clients`        : recherche / création de clients, scopés par pharmacie.
 """
 
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
 
+from . import auth as auth_module
 from . import vision
-from .schemas import AnalyzeResponse
+from .db import Base, engine, get_db
+from .models import Client, Diagnostic, Pharmacy
+from .schemas import (
+    AnalyzeResponse,
+    ClientIn,
+    ClientOut,
+    DiagnosticIn,
+    DiagnosticOut,
+    LoginRequest,
+    LoginResponse,
+    PharmacyOut,
+    PharmacyUpdate,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("api")
@@ -27,14 +43,26 @@ ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Charge le modèle CV une fois au démarrage (et non par requête)."""
-    vision.load_model()
+    """Crée les tables et charge le modèle CV au démarrage.
+
+    Le chargement du modèle est tolérant aux pannes : si InsightFace n'est pas
+    disponible (poids absents en local), l'API démarre quand même pour servir
+    l'authentification et la gestion des clients.
+    """
+    Base.metadata.create_all(bind=engine)
+    if os.getenv("SKIP_VISION") == "1":
+        logger.warning("SKIP_VISION=1 — modèle CV non chargé (auth/clients seuls).")
+    else:
+        try:
+            vision.load_model()
+        except Exception:  # pragma: no cover - dépend de l'environnement local
+            logger.exception("Modèle CV indisponible — /v1/analyze sera dégradé.")
     yield
 
 
 app = FastAPI(
-    title="Analyse faciale — MVP âge & sexe",
-    version="0.1.0",
+    title="Lumina — analyse faciale & auth pharmacie",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -53,13 +81,137 @@ async def health() -> dict:
     return {"status": "ok"}
 
 
+# ───────────────────────── Authentification ─────────────────────────
+
+
+@app.post("/v1/auth/login", response_model=LoginResponse)
+def login(payload: LoginRequest, db: Session = Depends(get_db)) -> LoginResponse:
+    """Vérifie les identifiants et renvoie un JWT + l'identité de la pharmacie."""
+    pharmacy = (
+        db.query(Pharmacy).filter(Pharmacy.email == payload.email.strip()).first()
+    )
+    if pharmacy is None or not auth_module.verify_password(
+        payload.password, pharmacy.password_hash
+    ):
+        raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
+    token = auth_module.create_token(pharmacy.id)
+    return LoginResponse(token=token, pharmacy=PharmacyOut.from_pharmacy(pharmacy))
+
+
+@app.get("/v1/auth/me", response_model=PharmacyOut)
+def me(pharmacy: Pharmacy = Depends(auth_module.get_current_pharmacy)) -> PharmacyOut:
+    """Renvoie la pharmacie associée au token (utile pour valider une session)."""
+    return PharmacyOut.from_pharmacy(pharmacy)
+
+
+@app.patch("/v1/pharmacy", response_model=PharmacyOut)
+def update_pharmacy(
+    payload: PharmacyUpdate,
+    pharmacy: Pharmacy = Depends(auth_module.get_current_pharmacy),
+    db: Session = Depends(get_db),
+) -> PharmacyOut:
+    """Met à jour les champs de profil fournis (les autres restent inchangés)."""
+    data = payload.model_dump(exclude_unset=True)
+    if "nom" in data and (data["nom"] is None or not data["nom"].strip()):
+        raise HTTPException(status_code=422, detail="Le nom ne peut pas être vide.")
+    for field, value in data.items():
+        setattr(pharmacy, field, value.strip() if isinstance(value, str) else value)
+    db.commit()
+    db.refresh(pharmacy)
+    return PharmacyOut.from_pharmacy(pharmacy)
+
+
+# ───────────────────────── Clients (scopés par pharmacie) ─────────────────────────
+
+
+@app.get("/v1/clients", response_model=list[ClientOut])
+def list_clients(
+    telephone: str | None = None,
+    pharmacy: Pharmacy = Depends(auth_module.get_current_pharmacy),
+    db: Session = Depends(get_db),
+) -> list[Client]:
+    """Liste / recherche les clients de LA pharmacie courante uniquement."""
+    query = db.query(Client).filter(Client.pharmacy_id == pharmacy.id)
+    if telephone:
+        query = query.filter(Client.telephone == telephone.strip())
+    return query.order_by(Client.created_at.desc()).all()
+
+
+@app.post("/v1/clients", response_model=ClientOut, status_code=201)
+def create_client(
+    payload: ClientIn,
+    pharmacy: Pharmacy = Depends(auth_module.get_current_pharmacy),
+    db: Session = Depends(get_db),
+) -> Client:
+    """Crée un client rattaché à la pharmacie courante (jamais à une autre)."""
+    client = Client(
+        pharmacy_id=pharmacy.id,
+        prenom=payload.prenom.strip(),
+        nom=payload.nom.strip(),
+        telephone=payload.telephone.strip(),
+        email=payload.email,
+        peau_sensible=payload.peau_sensible,
+    )
+    db.add(client)
+    db.commit()
+    db.refresh(client)
+    return client
+
+
+# ───────────────────────── Diagnostics (questionnaire + analyse) ─────────────────────────
+
+
+def _owned_client_or_404(client_id: int, pharmacy: Pharmacy, db: Session) -> Client:
+    """Renvoie le client s'il appartient à la pharmacie du token, sinon 404."""
+    client = db.get(Client, client_id)
+    if client is None or client.pharmacy_id != pharmacy.id:
+        raise HTTPException(status_code=404, detail="Client introuvable")
+    return client
+
+
+@app.post("/v1/diagnostics", response_model=DiagnosticOut, status_code=201)
+def create_diagnostic(
+    payload: DiagnosticIn,
+    pharmacy: Pharmacy = Depends(auth_module.get_current_pharmacy),
+    db: Session = Depends(get_db),
+) -> Diagnostic:
+    """Enregistre les réponses du questionnaire pour un client de la pharmacie."""
+    _owned_client_or_404(payload.client_id, pharmacy, db)
+    diagnostic = Diagnostic(
+        client_id=payload.client_id,
+        pharmacy_id=pharmacy.id,
+        type_peau=payload.type_peau,
+        tendance_acneique=payload.tendance_acneique,
+        sensibilite_cutanee=payload.sensibilite_cutanee,
+    )
+    db.add(diagnostic)
+    db.commit()
+    db.refresh(diagnostic)
+    return diagnostic
+
+
+@app.get("/v1/clients/{client_id}/diagnostics", response_model=list[DiagnosticOut])
+def list_diagnostics(
+    client_id: int,
+    pharmacy: Pharmacy = Depends(auth_module.get_current_pharmacy),
+    db: Session = Depends(get_db),
+) -> list[Diagnostic]:
+    """Historique des visites d'un client (le plus récent d'abord)."""
+    _owned_client_or_404(client_id, pharmacy, db)
+    return (
+        db.query(Diagnostic)
+        .filter(Diagnostic.client_id == client_id)
+        .order_by(Diagnostic.created_at.desc())
+        .all()
+    )
+
+
+# ───────────────────────── Analyse faciale ─────────────────────────
+
+
 @app.post("/v1/analyze", response_model=AnalyzeResponse)
 async def analyze(image: UploadFile = File(...)) -> AnalyzeResponse:
-    """Reçoit une image (vue de face) -> âge estimé + sexe.
-
-    Côté MVP, seule la vue de face est analysée (choix produit). L'app Flutter
-    capture les 4 vues mais n'envoie ici que la photo de face.
-    """
+    """Reçoit une image (vue de face) -> âge estimé + sexe."""
     if image.content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(
             status_code=415,
@@ -82,5 +234,4 @@ async def analyze(image: UploadFile = File(...)) -> AnalyzeResponse:
         raise HTTPException(status_code=500, detail="Échec de l'analyse.") from exc
 
     # Conformité RGPD (plan §8.2) : on ne conserve jamais l'image brute.
-    # `raw` est en mémoire le temps de la requête puis libéré ; rien n'est écrit sur disque.
     return AnalyzeResponse(**result)
