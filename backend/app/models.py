@@ -8,12 +8,16 @@ existant n'est pas mappé ici (lecture seule pour l'instant).
 from __future__ import annotations
 
 from sqlalchemy import (
+    Boolean,
     Column,
     DateTime,
     ForeignKey,
     Integer,
+    JSON,
     LargeBinary,
+    Numeric,
     String,
+    Text,
     func,
 )
 from sqlalchemy.orm import relationship
@@ -81,3 +85,51 @@ class Diagnostic(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     client = relationship("Client", back_populates="diagnostics")
+
+
+class SkinAnalysis(Base):
+    """Une analyse de peau (4 photos) — seuls les résultats JSON sont stockés."""
+
+    __tablename__ = "skin_analyses"
+
+    id = Column(Integer, primary_key=True)
+    pharmacy_id = Column(
+        Integer, ForeignKey("pharmacies.id"), nullable=False, index=True
+    )
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=True, index=True)
+    skin_type = Column(String, nullable=False)
+    results_json = Column(JSON, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class ConditionProductMap(Base):
+    """Mapping condition (ou skin_type_*) -> produit recommandable."""
+
+    __tablename__ = "condition_product_map"
+
+    id = Column(Integer, primary_key=True)
+    condition_code = Column(String(30), nullable=False, index=True)
+    skin_type = Column(String(15), nullable=True)  # NULL = tout type de peau
+    product_id = Column(Integer, ForeignKey("visage_products.id"), nullable=False)
+    priority = Column(Integer, nullable=False, default=0)
+
+
+class VisageProduct(Base):
+    """Mapping lecture seule du catalogue existant (colonnes utilisées seulement).
+
+    La table réelle a plus de colonnes (dont des ARRAY PostgreSQL) : on ne
+    mappe que ce dont le module skin a besoin, ce qui garde les tests
+    compatibles sqlite. `create_all` ne modifie jamais une table existante.
+    """
+
+    __tablename__ = "visage_products"
+
+    id = Column(Integer, primary_key=True)
+    sub = Column(Text)
+    brand = Column(Text)
+    name = Column(Text)
+    description = Column(Text)
+    price = Column(Numeric)
+    image_url = Column(Text)
+    in_stock = Column(Boolean)
+    active = Column(Boolean)
