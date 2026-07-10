@@ -32,6 +32,7 @@ from .schemas import (
     PharmacyOut,
     PharmacyUpdate,
 )
+from .skin.router import router as skin_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("api")
@@ -73,6 +74,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(skin_router)
 
 
 @app.get("/health")
