@@ -13,6 +13,7 @@ paresseusement : requirements-phase2.txt.
 """
 from __future__ import annotations
 
+import logging
 import os
 
 import cv2
@@ -25,6 +26,8 @@ from .analyzer import (
     SkinAnalyzer,
     SkinPhotoResult,
 )
+
+logger = logging.getLogger("skin.local")
 
 # Ordre des classes du modèle YOLO (doit correspondre au data.yaml d'entraînement).
 CLASS_TO_CONDITION = {
@@ -140,7 +143,12 @@ class LocalAnalyzer(SkinAnalyzer):
         return mask
 
     def _classify_skin_type(self, img_bgr: np.ndarray) -> str:
-        from PIL import Image
+        try:
+            from PIL import Image
+        except ImportError as exc:
+            raise EngineUnavailableError(
+                "Moteur local : installer requirements-phase2.txt (pillow)."
+            ) from exc
 
         pipe = self._get_skin_type_pipe()
         rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
@@ -157,25 +165,30 @@ class LocalAnalyzer(SkinAnalyzer):
         model_path = os.getenv("SKIN_YOLO_MODEL_PATH", "").strip()
         if not model_path or not os.path.exists(model_path):
             return {}
-        import onnxruntime as ort
+        # onnxruntime est déjà dans requirements.txt (InsightFace) — pas une dep Phase 2.
+        try:
+            import onnxruntime as ort
 
-        if self._yolo_session is None:
-            self._yolo_session = ort.InferenceSession(
-                model_path, providers=["CPUExecutionProvider"]
-            )
-        model_input = self._yolo_session.get_inputs()[0]
-        size = model_input.shape[2] if isinstance(model_input.shape[2], int) else 640
-        resized = cv2.resize(img_bgr, (size, size))
-        blob = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
-        blob = blob.transpose(2, 0, 1)[None]
-        detections = self._yolo_session.run(None, {model_input.name: blob})[0][0]
-        best: dict[str, float] = {}
-        for det in detections:  # (x1, y1, x2, y2, conf, cls)
-            confidence, cls = float(det[4]), int(det[5])
-            condition = CLASS_TO_CONDITION.get(cls)
-            if condition and confidence > best.get(condition, 0.0):
-                best[condition] = confidence
-        return {c: round(v * 100) for c, v in best.items()}
+            if self._yolo_session is None:
+                self._yolo_session = ort.InferenceSession(
+                    model_path, providers=["CPUExecutionProvider"]
+                )
+            model_input = self._yolo_session.get_inputs()[0]
+            size = model_input.shape[2] if isinstance(model_input.shape[2], int) else 640
+            resized = cv2.resize(img_bgr, (size, size))
+            blob = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+            blob = blob.transpose(2, 0, 1)[None]
+            detections = self._yolo_session.run(None, {model_input.name: blob})[0][0]
+            best: dict[str, float] = {}
+            for det in detections:  # (x1, y1, x2, y2, conf, cls)
+                confidence, cls = float(det[4]), int(det[5])
+                condition = CLASS_TO_CONDITION.get(cls)
+                if condition and confidence > best.get(condition, 0.0):
+                    best[condition] = confidence
+            return {c: round(v * 100) for c, v in best.items()}
+        except Exception:  # modèle invalide/sortie inattendue : on dégrade sans bloquer
+            logger.warning("Hooks YOLO ignorés (modèle ou sortie ONNX invalide).", exc_info=True)
+            return {}
 
     async def analyze_photo(self, image_bytes: bytes) -> SkinPhotoResult:
         arr = np.frombuffer(image_bytes, np.uint8)
