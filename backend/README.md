@@ -66,3 +66,76 @@ Si aucun visage n'est détecté :
 
 L'image n'est **jamais écrite sur disque** : elle reste en mémoire le temps de la
 requête, puis est libérée. Seul le résultat structuré est renvoyé.
+
+## Analyse de peau (module `app/skin/`)
+
+`POST /v1/skin/analyze` (JWT pharmacie) reçoit 4 photos (`front`, `left`,
+`right`, `closeup`) + `client_id` optionnel et renvoie : type de peau,
+7 conditions notées 0–100, recommandations produits et disclaimer médical.
+Les photos sont traitées en mémoire et jamais stockées.
+
+### Phase 1 — Face++ (moteur par défaut)
+
+1. Créer un compte gratuit sur <https://console.faceplusplus.com>.
+2. Créer une application API → récupérer **API Key** et **API Secret**.
+3. Compléter `backend/.env` :
+
+   ```env
+   FACEPP_API_KEY=...
+   FACEPP_API_SECRET=...
+   FACEPP_ENDPOINT=https://api-us.faceplusplus.com/facepp/v1/skinanalyze
+   ANALYSIS_ENGINE=facepp      # facepp | local | auto
+   SKIN_BLUR_THRESHOLD=60
+   SKIN_YOLO_MODEL_PATH=       # Phase 2, vide = hooks YOLO inactifs
+   ```
+
+### Recommandations produits
+
+Le mapping condition → produits est dérivé des sous-catégories (`sub`) de
+`visage_products` :
+
+```bash
+python -m scripts.seed_condition_map
+```
+
+Relançable à volonté (idempotent). Ajuster ensuite les priorités directement
+dans la table `condition_product_map` si besoin.
+
+### Tests
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest tests -v
+```
+
+Test manuel (après login pour obtenir un token) :
+
+```bash
+TOKEN=$(curl -s -X POST http://127.0.0.1:8000/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"test@lumina.com","password":"lumina123"}' | python -c "import sys,json;print(json.load(sys.stdin)['token'])")
+curl -X POST http://127.0.0.1:8000/v1/skin/analyze \
+  -H "Authorization: Bearer $TOKEN" \
+  -F front=@face.jpg -F left=@gauche.jpg -F right=@droit.jpg -F closeup=@front.jpg
+```
+
+### Phase 2 — moteur local gratuit
+
+```bash
+pip install -r requirements-phase2.txt
+```
+
+- Rougeurs (OpenCV, CIELAB) et type de peau (HF
+  `dima806/skin_types_image_detection` + logique T-zone) fonctionnent sans
+  entraînement.
+- Conditions (acné, points noirs, taches, pores, rides) : entraîner YOLOv8
+  sur Google Colab avec `train/train_yolo.py` (datasets gratuits sur
+  <https://universe.roboflow.com> — fusionner en un projet à 5 classes dans
+  l'ordre de `CLASS_TO_CONDITION` de `app/skin/local.py`), puis copier
+  l'export ONNX sur le serveur et renseigner `SKIN_YOLO_MODEL_PATH`.
+- Une fois validé, passer `ANALYSIS_ENGINE=auto` (Face++ avec repli local)
+  ou `local`.
+
+> ⚠️ Les résultats (acné, rougeurs/rosacée…) sont une aide cosmétique, pas un
+> diagnostic médical : le disclaimer doit rester visible partout où ils sont
+> affichés.
