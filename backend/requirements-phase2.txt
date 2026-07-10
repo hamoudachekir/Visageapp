@@ -1,0 +1,7 @@
+# Dépendances lourdes du moteur local (Phase 2) — installer séparément :
+#     pip install -r requirements-phase2.txt
+mediapipe>=0.10
+transformers>=4.40
+torch>=2.2
+pillow>=10
+ultralytics>=8.2
