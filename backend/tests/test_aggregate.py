@@ -46,3 +46,16 @@ def test_egalite_tranchee_par_la_photo_de_face():
 def test_agregation_vide_interdite():
     with pytest.raises(ValueError):
         aggregate({})
+
+
+def test_front_minoritaire_ne_gagne_pas_l_egalite():
+    # 5 photos : front est minoritaire (1 voix), oily et dry à égalité (2-2).
+    results = {
+        "front": _photo("normal"),
+        "left": _photo("oily"),
+        "right": _photo("oily"),
+        "closeup": _photo("dry"),
+        "extra": _photo("dry"),
+    }
+    _, skin_type, _ = aggregate(results)
+    assert skin_type in {"oily", "dry"}

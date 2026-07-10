@@ -15,7 +15,7 @@ def aggregate(
 
     `results` ne contient que les photos analysées avec succès ; la photo de
     face (`front`) est garantie présente par le moteur. En cas d'égalité au
-    vote, le type de la photo de face l'emporte.
+    vote, le type de la photo de face l'emporte s'il fait partie des ex æquo.
     """
     if not results:
         raise ValueError("aucun résultat photo à agréger")
@@ -33,10 +33,16 @@ def aggregate(
                 if zone not in bucket:
                     bucket.append(zone)
 
-    votes = Counter(r.skin_type for r in results.values()).most_common()
-    if len(votes) > 1 and votes[0][1] == votes[1][1] and FRONT_KEY in results:
+    votes = Counter(r.skin_type for r in results.values())
+    max_count = max(votes.values())
+    leaders = [t for t, c in votes.items() if c == max_count]
+    if (
+        len(leaders) > 1
+        and FRONT_KEY in results
+        and results[FRONT_KEY].skin_type in leaders
+    ):
         skin_type = results[FRONT_KEY].skin_type
     else:
-        skin_type = votes[0][0]
+        skin_type = leaders[0]
 
     return scores, skin_type, zones
