@@ -1,7 +1,17 @@
 """Moteur Face++ Skin Analyze : parser vers le schéma unifié (+ client HTTP en Task 3)."""
 from __future__ import annotations
 
-from .analyzer import SkinPhotoResult
+import os
+
+import httpx
+
+from .analyzer import (
+    FaceppQuotaError,
+    FaceppUnavailableError,
+    NoFaceError,
+    SkinAnalyzer,
+    SkinPhotoResult,
+)
 
 FACEPP_ENDPOINT_DEFAULT = "https://api-us.faceplusplus.com/facepp/v1/skinanalyze"
 
@@ -72,3 +82,70 @@ def parse_skinanalyze(result: dict) -> SkinPhotoResult:
     skin_type = SKIN_TYPE_MAP.get(int(raw_type), "normal")
 
     return SkinPhotoResult(scores=scores, skin_type=skin_type, zones=zones)
+
+
+_QUOTA_KEYWORDS = ("LIMIT", "BALANCE", "AUTH")
+
+
+def _raise_for_facepp_error(error_message: str) -> None:
+    """Classe l'erreur Face++ : quota/clés, photo inexploitable, ou autre."""
+    upper = error_message.upper()
+    if any(keyword in upper for keyword in _QUOTA_KEYWORDS):
+        raise FaceppQuotaError(
+            "Service d'analyse temporairement indisponible (quota Face++)."
+        )
+    if "FACE" in upper or "IMAGE" in upper:
+        raise NoFaceError("visage non exploitable par le service d'analyse.")
+    raise FaceppUnavailableError(f"Erreur du service d'analyse : {error_message}")
+
+
+class FaceppAnalyzer(SkinAnalyzer):
+    """Moteur Phase 1 : API Face++ Skin Analyze (visage frontal requis)."""
+
+    name = "facepp"
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        api_secret: str | None = None,
+        endpoint: str | None = None,
+        timeout: float = 15.0,
+    ):
+        self.api_key = api_key if api_key is not None else os.getenv("FACEPP_API_KEY", "")
+        self.api_secret = (
+            api_secret if api_secret is not None else os.getenv("FACEPP_API_SECRET", "")
+        )
+        self.endpoint = endpoint or os.getenv("FACEPP_ENDPOINT", FACEPP_ENDPOINT_DEFAULT)
+        self.timeout = timeout
+
+    async def _post(self, image_bytes: bytes) -> httpx.Response:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            return await client.post(
+                self.endpoint,
+                data={"api_key": self.api_key, "api_secret": self.api_secret},
+                files={"image_file": ("photo.jpg", image_bytes, "image/jpeg")},
+            )
+
+    async def analyze_photo(self, image_bytes: bytes) -> SkinPhotoResult:
+        if not self.api_key or not self.api_secret:
+            raise FaceppUnavailableError(
+                "Clés Face++ manquantes (FACEPP_API_KEY / FACEPP_API_SECRET)."
+            )
+        for _attempt in (1, 2):  # 1 essai + 1 retry sur timeout / 5xx
+            try:
+                response = await self._post(image_bytes)
+            except httpx.TimeoutException:
+                continue
+            if response.status_code >= 500:
+                continue
+            payload = response.json()
+            error_message = payload.get("error_message")
+            if error_message:
+                _raise_for_facepp_error(error_message)
+            result = payload.get("result")
+            if result is None:
+                raise FaceppUnavailableError("Réponse Face++ sans bloc result.")
+            return parse_skinanalyze(result)
+        raise FaceppUnavailableError(
+            "Service d'analyse injoignable (délai dépassé après 2 tentatives)."
+        )
