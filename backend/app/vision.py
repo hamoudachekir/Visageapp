@@ -84,3 +84,10 @@ def analyze_demographics(raw: bytes) -> dict:
             "sexe": sexe,
         },
     }
+
+
+def count_faces(img_bgr: np.ndarray) -> int | None:
+    """Nombre de visages détectés, ou None si le modèle n'est pas chargé."""
+    if _face_app is None:
+        return None
+    return len(_face_app.get(img_bgr))
