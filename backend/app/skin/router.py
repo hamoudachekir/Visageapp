@@ -21,9 +21,10 @@ from .analyzer import (
     FaceppQuotaError,
     FrontPhotoFailedError,
 )
+from .age import estimate_age, real_age_from_birth_date, skin_age_message_fr
 from .labels import DISCLAIMER_FR, LABELS_FR, severity
 from .recommend import build_recommendations, fetch_mappings, fetch_products
-from .schemas import ConditionOut, RecommendationOut, SkinAnalyzeResponse
+from .schemas import AgeOut, ConditionOut, RecommendationOut, SkinAnalyzeResponse
 
 logger = logging.getLogger("skin")
 
@@ -44,6 +45,7 @@ async def analyze_skin(
     db: Session = Depends(get_db),
 ) -> SkinAnalyzeResponse:
     """Analyse les 4 photos et renvoie conditions + recommandations produits."""
+    client: Client | None = None
     if client_id is not None:
         client = db.get(Client, client_id)
         if client is None or client.pharmacy_id != pharmacy.id:
@@ -81,19 +83,46 @@ async def analyze_skin(
 
     scores, skin_type, zones = aggregate(run.results)
 
+    # Estimation d'âge sur la photo de face déjà en mémoire — jamais bloquant.
+    estimate, age_engine = await estimate_age(photos["front"])
+    estimated_age = estimate.age if estimate else None
+    real_age = (
+        real_age_from_birth_date(client.birth_date)
+        if client is not None and client.birth_date is not None
+        else None
+    )
+    skin_age_delta = (
+        estimated_age - real_age
+        if estimated_age is not None and real_age is not None
+        else None
+    )
+    age_for_reco = real_age if real_age is not None else estimated_age
+
     mappings = fetch_mappings(db, list(scores) + [f"skin_type_{skin_type}"])
     products = fetch_products(db, [m["product_id"] for m in mappings])
-    recommendations = build_recommendations(scores, skin_type, mappings, products)
+    recommendations = build_recommendations(
+        scores,
+        skin_type,
+        mappings,
+        products,
+        age=age_for_reco,
+        skin_age_delta=skin_age_delta,
+    )
 
     analysis = SkinAnalysis(
         pharmacy_id=pharmacy.id,
         client_id=client_id,
         skin_type=skin_type,
+        estimated_age=estimated_age,
+        real_age=real_age,
+        skin_age_delta=skin_age_delta,
         results_json={
             "scores": scores,
             "zones": zones,
             "engine": run.engine,
             "photo_status": run.photo_status,
+            "age_engine": age_engine,
+            "sexe_estime": estimate.sexe if estimate else None,
         },
     )
     db.add(analysis)
@@ -122,10 +151,25 @@ async def analyze_skin(
         )
         for r in recommendations
     ]
+    age_block = None
+    if estimated_age is not None:
+        message_fr = (
+            skin_age_message_fr(skin_age_delta)
+            if skin_age_delta is not None
+            else f"Votre peau paraît {estimated_age} ans (estimation)."
+        )
+        age_block = AgeOut(
+            estimated_age=estimated_age,
+            real_age=real_age,
+            skin_age_delta=skin_age_delta,
+            message_fr=message_fr,
+        )
+
     return SkinAnalyzeResponse(
         analysis_id=analysis.id,
         skin_type=skin_type,
         conditions=conditions,
         recommendations=recs,
+        age=age_block,
         disclaimer_fr=DISCLAIMER_FR,
     )

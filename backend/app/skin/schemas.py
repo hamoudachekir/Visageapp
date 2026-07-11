@@ -22,9 +22,21 @@ class RecommendationOut(BaseModel):
     matched_conditions: list[str] = []
 
 
+class AgeOut(BaseModel):
+    """Bloc âge — `estimated_age` est une estimation IA, jamais exacte."""
+
+    estimated_age: int = Field(
+        description="Âge estimé par IA sur la photo de face (estimation)."
+    )
+    real_age: int | None = None
+    skin_age_delta: int | None = None
+    message_fr: str
+
+
 class SkinAnalyzeResponse(BaseModel):
     analysis_id: int
     skin_type: str
     conditions: list[ConditionOut]
     recommendations: list[RecommendationOut]
+    age: AgeOut | None = None
     disclaimer_fr: str

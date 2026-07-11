@@ -74,6 +74,26 @@ requête, puis est libérée. Seul le résultat structuré est renvoyé.
 7 conditions notées 0–100, recommandations produits et disclaimer médical.
 Les photos sont traitées en mémoire et jamais stockées.
 
+### Âge de la peau (estimation)
+
+La réponse contient un bloc `age` : `estimated_age` (**estimation** IA via
+Face++ Detect, repli InsightFace local selon `ANALYSIS_ENGINE`), `real_age`
+(calculé depuis `clients.birth_date` si l'analyse est rattachée à un client),
+`skin_age_delta` et `message_fr` (« Votre peau paraît X ans… »). Si les deux
+moteurs échouent, `age` vaut `null` sans casser l'analyse. La date de
+naissance se renseigne à la création du client (`POST /v1/clients`, champ
+`birth_date`, âge 13–110 ans) ou via `PATCH /v1/clients/{id}`.
+
+Migration à exécuter une fois :
+
+```bash
+python -m scripts.migrate_age_columns
+```
+
+L'âge influe sur les recommandations : filtres `min_age`/`max_age` du mapping,
+produits anti-rides seulement si âge ≥ 35 ou score rides ≥ 40, et boost des
+produits rides/taches si la peau paraît 3 ans de plus que l'âge réel.
+
 ### Phase 1 — Face++ (moteur par défaut)
 
 1. Créer un compte gratuit sur <https://console.faceplusplus.com>.

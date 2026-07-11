@@ -83,6 +83,11 @@ def api(monkeypatch):
 
     monkeypatch.setattr("app.skin.engine.run_analysis", fake_run)
 
+    async def fake_estimate(front_bytes, mode=None):
+        return None, None
+
+    monkeypatch.setattr("app.skin.router.estimate_age", fake_estimate)
+
     yield TestClient(app), Session
     app.dependency_overrides.clear()
 
@@ -167,3 +172,70 @@ def test_client_de_la_pharmacie_rattache(api):
     s = Session()
     assert s.query(SkinAnalysis).one().client_id == mien_id
     s.close()
+
+
+from datetime import date
+
+from app.skin.age import AgeEstimate
+
+
+def test_age_null_si_estimateur_echoue(api):
+    client, Session = api
+    res = client.post("/v1/skin/analyze", files=_files())
+    assert res.status_code == 200
+    assert res.json()["age"] is None
+    s = Session()
+    saved = s.query(SkinAnalysis).one()
+    assert saved.estimated_age is None and saved.skin_age_delta is None
+    s.close()
+
+
+def test_bloc_age_complet_avec_birth_date(api, monkeypatch):
+    client, Session = api
+
+    async def fake_estimate(front_bytes, mode=None):
+        return AgeEstimate(age=32, sexe="Homme"), "facepp"
+
+    monkeypatch.setattr("app.skin.router.estimate_age", fake_estimate)
+
+    s = Session()
+    today = date.today()
+    mien = Client(
+        pharmacy_id=1, prenom="A", nom="B", telephone="2",
+        birth_date=today.replace(year=today.year - 28),
+    )
+    s.add(mien)
+    s.commit()
+    mien_id = mien.id
+    s.close()
+
+    res = client.post(
+        "/v1/skin/analyze", files=_files(), data={"client_id": str(mien_id)}
+    )
+    assert res.status_code == 200, res.text
+    age = res.json()["age"]
+    assert age == {
+        "estimated_age": 32,
+        "real_age": 28,
+        "skin_age_delta": 4,
+        "message_fr": "Votre peau paraît 4 ans de plus — voici des soins ciblés.",
+    }
+    s = Session()
+    saved = s.query(SkinAnalysis).order_by(SkinAnalysis.id.desc()).first()
+    assert (saved.estimated_age, saved.real_age, saved.skin_age_delta) == (32, 28, 4)
+    assert saved.results_json["age_engine"] == "facepp"
+    s.close()
+
+
+def test_bloc_age_sans_birth_date(api, monkeypatch):
+    client, _ = api
+
+    async def fake_estimate(front_bytes, mode=None):
+        return AgeEstimate(age=32, sexe=None), "local"
+
+    monkeypatch.setattr("app.skin.router.estimate_age", fake_estimate)
+    res = client.post("/v1/skin/analyze", files=_files())
+    age = res.json()["age"]
+    assert age["estimated_age"] == 32
+    assert age["real_age"] is None and age["skin_age_delta"] is None
+    assert age["message_fr"] == "Votre peau paraît 32 ans (estimation)."
