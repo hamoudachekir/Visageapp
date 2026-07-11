@@ -54,6 +54,10 @@ class SkinResultScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (result.age != null) ...[
+                    _buildAgeCard(context),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
                   _buildSkinTypeCard(context),
                   const SizedBox(height: AppSpacing.lg),
                   Text('Conditions détectées',
@@ -133,6 +137,55 @@ class SkinResultScreen extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAgeCard(BuildContext context) {
+    final age = result.age!;
+    final details = StringBuffer('Estimation : ${age.estimatedAge} ans');
+    if (age.realAge != null) {
+      details.write(' · Âge réel : ${age.realAge} ans');
+    }
+    return CustomCard(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: AppColors.primaryLight,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            ),
+            child: const Icon(Icons.cake_outlined,
+                color: AppColors.primary, size: 24),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Âge de la peau',
+                    style: Theme.of(context).textTheme.bodySmall),
+                const SizedBox(height: 2),
+                Text(
+                  age.messageFr,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  details.toString(),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
           ),
         ],
       ),
