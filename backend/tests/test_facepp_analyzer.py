@@ -69,3 +69,31 @@ async def test_timeout_deux_tentatives(monkeypatch):
     with pytest.raises(FaceppUnavailableError):
         await analyzer.analyze_photo(b"x")
     assert len(calls) == 2  # 1 essai + 1 retry
+
+
+async def test_erreur_reseau_deux_tentatives(monkeypatch):
+    analyzer = _analyzer()
+    calls: list[int] = []
+
+    async def fake_post(image_bytes):
+        calls.append(1)
+        raise httpx.ConnectError("dns")
+
+    monkeypatch.setattr(analyzer, "_post", fake_post)
+    with pytest.raises(FaceppUnavailableError):
+        await analyzer.analyze_photo(b"x")
+    assert len(calls) == 2  # les erreurs réseau sont retentées comme les timeouts
+
+
+async def test_corps_non_json(monkeypatch):
+    analyzer = _analyzer()
+
+    async def fake_post(image_bytes):
+        return httpx.Response(
+            200, content=b"<html>proxy error</html>",
+            request=httpx.Request("POST", "https://facepp.test"),
+        )
+
+    monkeypatch.setattr(analyzer, "_post", fake_post)
+    with pytest.raises(FaceppUnavailableError):
+        await analyzer.analyze_photo(b"x")

@@ -1,4 +1,4 @@
-"""Moteur Face++ Skin Analyze : parser vers le schéma unifié (+ client HTTP en Task 3)."""
+"""Moteur Face++ Skin Analyze : parser vers le schéma unifié + client HTTP."""
 from __future__ import annotations
 
 import os
@@ -131,14 +131,19 @@ class FaceppAnalyzer(SkinAnalyzer):
             raise FaceppUnavailableError(
                 "Clés Face++ manquantes (FACEPP_API_KEY / FACEPP_API_SECRET)."
             )
-        for _attempt in (1, 2):  # 1 essai + 1 retry sur timeout / 5xx
+        for _attempt in (1, 2):  # 1 essai + 1 retry sur timeout / erreur réseau / 5xx
             try:
                 response = await self._post(image_bytes)
-            except httpx.TimeoutException:
+            except httpx.TransportError:
                 continue
             if response.status_code >= 500:
                 continue
-            payload = response.json()
+            try:
+                payload = response.json()
+            except ValueError as exc:
+                raise FaceppUnavailableError(
+                    "Réponse du service d'analyse illisible (corps non JSON)."
+                ) from exc
             error_message = payload.get("error_message")
             if error_message:
                 _raise_for_facepp_error(error_message)
@@ -147,5 +152,5 @@ class FaceppAnalyzer(SkinAnalyzer):
                 raise FaceppUnavailableError("Réponse Face++ sans bloc result.")
             return parse_skinanalyze(result)
         raise FaceppUnavailableError(
-            "Service d'analyse injoignable (délai dépassé après 2 tentatives)."
+            "Service d'analyse injoignable (réseau ou délai, 2 tentatives)."
         )
