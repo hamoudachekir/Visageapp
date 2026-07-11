@@ -6,9 +6,11 @@ Aligné sur le champ `demographics` du profil client décrit dans le plan
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from .skin.age import real_age_from_birth_date
 
 
 class Demographics(BaseModel):
@@ -83,18 +85,52 @@ class LoginResponse(BaseModel):
     pharmacy: PharmacyOut
 
 
+def _check_birth_date(v: date | None) -> date | None:
+    """Âge entre 13 et 110 ans, sinon 422 avec message FR."""
+    if v is None:
+        return v
+    age = real_age_from_birth_date(v)
+    if age < 13 or age > 110:
+        raise ValueError(
+            "Date de naissance invalide : l'âge doit être entre 13 et 110 ans."
+        )
+    return v
+
+
 class ClientIn(BaseModel):
     prenom: str
     nom: str
     telephone: str
     email: str | None = None
     peau_sensible: str = "non"
+    birth_date: date | None = None
+
+    @field_validator("birth_date")
+    @classmethod
+    def _valide_birth_date(cls, v: date | None) -> date | None:
+        return _check_birth_date(v)
 
 
 class ClientOut(ClientIn):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+
+
+class ClientUpdate(BaseModel):
+    """PATCH partiel : seuls les champs fournis sont modifiés."""
+
+    prenom: str | None = None
+    nom: str | None = None
+    telephone: str | None = None
+    email: str | None = None
+    peau_sensible: str | None = None
+    birth_date: date | None = None
+
+    @field_validator("birth_date")
+    @classmethod
+    def _valide_birth_date(cls, v: date | None) -> date | None:
+        return _check_birth_date(v)
 
 
 class DiagnosticIn(BaseModel):

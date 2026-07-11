@@ -25,6 +25,7 @@ from .schemas import (
     AnalyzeResponse,
     ClientIn,
     ClientOut,
+    ClientUpdate,
     DiagnosticIn,
     DiagnosticOut,
     LoginRequest,
@@ -207,8 +208,31 @@ def create_client(
         telephone=payload.telephone.strip(),
         email=payload.email,
         peau_sensible=payload.peau_sensible,
+        birth_date=payload.birth_date,
     )
     db.add(client)
+    db.commit()
+    db.refresh(client)
+    return client
+
+
+@app.patch("/v1/clients/{client_id}", response_model=ClientOut)
+def update_client(
+    client_id: int,
+    payload: ClientUpdate,
+    pharmacy: Pharmacy = Depends(auth_module.get_current_pharmacy),
+    db: Session = Depends(get_db),
+) -> Client:
+    """Met à jour les champs fournis d'un client de la pharmacie courante."""
+    client = _owned_client_or_404(client_id, pharmacy, db)
+    data = payload.model_dump(exclude_unset=True)
+    for field in ("prenom", "nom", "telephone"):
+        if field in data and (data[field] is None or not str(data[field]).strip()):
+            raise HTTPException(
+                status_code=422, detail=f"Le champ {field} ne peut pas être vide."
+            )
+    for field, value in data.items():
+        setattr(client, field, value.strip() if isinstance(value, str) else value)
     db.commit()
     db.refresh(client)
     return client
