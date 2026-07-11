@@ -1,4 +1,29 @@
-/// Modèles du diagnostic de peau renvoyé par `POST /v1/skin/analyze`.
+// Modèles du diagnostic de peau renvoyé par `POST /v1/skin/analyze`.
+
+/// Bloc âge — `estimatedAge` est une estimation IA, jamais exacte.
+class AgeInfo {
+  final int estimatedAge;
+  final int? realAge;
+  final int? skinAgeDelta;
+  final String messageFr;
+
+  const AgeInfo({
+    required this.estimatedAge,
+    this.realAge,
+    this.skinAgeDelta,
+    required this.messageFr,
+  });
+
+  factory AgeInfo.fromJson(Map<String, dynamic> json) {
+    return AgeInfo(
+      estimatedAge: (json['estimated_age'] as num).toInt(),
+      realAge: (json['real_age'] as num?)?.toInt(),
+      skinAgeDelta: (json['skin_age_delta'] as num?)?.toInt(),
+      messageFr: json['message_fr'] as String? ?? '',
+    );
+  }
+}
+
 class SkinCondition {
   final String code;
   final String labelFr;
@@ -64,6 +89,7 @@ class SkinAnalysisResult {
   final List<SkinCondition> conditions;
   final List<ProductRecommendation> recommendations;
   final String disclaimerFr;
+  final AgeInfo? age;
 
   const SkinAnalysisResult({
     required this.analysisId,
@@ -71,6 +97,7 @@ class SkinAnalysisResult {
     required this.conditions,
     required this.recommendations,
     required this.disclaimerFr,
+    this.age,
   });
 
   factory SkinAnalysisResult.fromJson(Map<String, dynamic> json) {
@@ -84,6 +111,9 @@ class SkinAnalysisResult {
           .map((r) => ProductRecommendation.fromJson(r as Map<String, dynamic>))
           .toList(),
       disclaimerFr: json['disclaimer_fr'] as String? ?? '',
+      age: json['age'] == null
+          ? null
+          : AgeInfo.fromJson(json['age'] as Map<String, dynamic>),
     );
   }
 }

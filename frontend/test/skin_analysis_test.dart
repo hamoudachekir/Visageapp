@@ -42,4 +42,38 @@ void main() {
     expect(result.recommendations.single.matchedConditions, ['acne']);
     expect(result.disclaimerFr, contains('dermatologique'));
   });
+
+  test('bloc age présent', () {
+    final json = {
+      'analysis_id': 1,
+      'skin_type': 'oily',
+      'conditions': [],
+      'recommendations': [],
+      'age': {
+        'estimated_age': 32,
+        'real_age': 28,
+        'skin_age_delta': 4,
+        'message_fr': 'Votre peau paraît 4 ans de plus — voici des soins ciblés.',
+      },
+      'disclaimer_fr': 'x',
+    };
+    final result = SkinAnalysisResult.fromJson(json);
+    expect(result.age, isNotNull);
+    expect(result.age!.estimatedAge, 32);
+    expect(result.age!.realAge, 28);
+    expect(result.age!.skinAgeDelta, 4);
+    expect(result.age!.messageFr, contains('4 ans de plus'));
+  });
+
+  test('bloc age absent ou null', () {
+    final json = {
+      'analysis_id': 1,
+      'skin_type': 'oily',
+      'conditions': [],
+      'recommendations': [],
+      'age': null,
+      'disclaimer_fr': 'x',
+    };
+    expect(SkinAnalysisResult.fromJson(json).age, isNull);
+  });
 }
