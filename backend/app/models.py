@@ -10,6 +10,7 @@ from __future__ import annotations
 from sqlalchemy import (
     Boolean,
     Column,
+    Date,
     DateTime,
     ForeignKey,
     Integer,
@@ -58,6 +59,7 @@ class Client(Base):
     telephone = Column(String, nullable=False, index=True)
     email = Column(String, nullable=True)
     peau_sensible = Column(String, nullable=False, default="non")
+    birth_date = Column(Date, nullable=True)  # pour l'« âge de la peau »
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     pharmacy = relationship("Pharmacy", back_populates="clients")
@@ -98,6 +100,9 @@ class SkinAnalysis(Base):
     )
     client_id = Column(Integer, ForeignKey("clients.id"), nullable=True, index=True)
     skin_type = Column(String, nullable=False)
+    estimated_age = Column(Integer, nullable=True)  # estimation IA — jamais exacte
+    real_age = Column(Integer, nullable=True)
+    skin_age_delta = Column(Integer, nullable=True)
     results_json = Column(JSON, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -112,6 +117,8 @@ class ConditionProductMap(Base):
     skin_type = Column(String(15), nullable=True)  # NULL = tout type de peau
     product_id = Column(Integer, ForeignKey("visage_products.id"), nullable=False)
     priority = Column(Integer, nullable=False, default=0)
+    min_age = Column(Integer, nullable=True)  # NULL = tout âge
+    max_age = Column(Integer, nullable=True)
 
 
 class VisageProduct(Base):
