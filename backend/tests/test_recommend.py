@@ -89,8 +89,62 @@ def test_fetchers_sqlite(db_session):
 
     mappings = fetch_mappings(db_session, ["wrinkles", "acne"])
     assert mappings == [
-        {"condition_code": "wrinkles", "skin_type": None, "product_id": 1, "priority": 10}
+        {
+            "condition_code": "wrinkles",
+            "skin_type": None,
+            "product_id": 1,
+            "priority": 10,
+            "min_age": None,
+            "max_age": None,
+        }
     ]
     products = fetch_products(db_session, [1])
     assert products[1]["name"] == "Crème"
     assert products[1]["price"] == 19.9
+
+
+def test_filtre_min_max_age():
+    mappings = [
+        _mapping("acne", 1, 10) | {"min_age": 40, "max_age": None},   # trop jeune
+        _mapping("acne", 2, 10) | {"min_age": None, "max_age": 25},   # trop vieux
+        _mapping("acne", 3, 10) | {"min_age": 18, "max_age": 40},     # dans la plage
+        _mapping("acne", 4, 10),                                      # sans bornes
+    ]
+    recs = build_recommendations(SCORES, "oily", mappings, _products(4), age=30)
+    assert {r.product_id for r in recs} == {3, 4}
+
+
+def test_filtre_age_ignore_si_age_inconnu():
+    mappings = [_mapping("acne", 1, 10) | {"min_age": 40, "max_age": 60}]
+    recs = build_recommendations(SCORES, "oily", mappings, _products(1), age=None)
+    assert [r.product_id for r in recs] == [1]
+
+
+def test_regle_anti_age_rides():
+    scores = dict(SCORES, wrinkles=35)  # 30 <= score < 40
+    mappings = [_mapping("wrinkles", 1, 10)]
+    products = _products(1)
+    # jeune (30 ans) + score faible -> exclu
+    assert build_recommendations(scores, "oily", mappings, products, age=30) == []
+    # 40 ans -> inclus
+    assert [r.product_id for r in build_recommendations(scores, "oily", mappings, products, age=40)] == [1]
+    # score fort (45) même jeune -> inclus
+    scores_forts = dict(SCORES, wrinkles=45)
+    assert [r.product_id for r in build_recommendations(scores_forts, "oily", mappings, products, age=30)] == [1]
+    # âge inconnu -> inclus
+    assert [r.product_id for r in build_recommendations(scores, "oily", mappings, products, age=None)] == [1]
+
+
+def test_boost_delta_rides_et_taches():
+    scores = dict(SCORES, wrinkles=50, dark_spots=45, acne=50)
+    mappings = [
+        _mapping("wrinkles", 1, 10),   # 500 ; boosté (x1.5) -> 750
+        _mapping("acne", 2, 14),       # 700 : devant sans boost, derrière avec
+    ]
+    products = _products(2)
+    sans_boost = build_recommendations(scores, "oily", mappings, products, age=40)
+    assert sans_boost[0].product_id == 2
+    avec_boost = build_recommendations(
+        scores, "oily", mappings, products, age=40, skin_age_delta=4
+    )
+    assert avec_boost[0].product_id == 1

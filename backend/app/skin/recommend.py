@@ -12,6 +12,11 @@ from .labels import RECOMMEND_THRESHOLD, severity
 SKIN_TYPE_BASE_SCORE = 40
 TOP_N = 6
 
+# Impact de l'âge sur les recommandations (spec 2026-07-11).
+AGE_DELTA_BOOST = 1.5        # skin_age_delta >= 3 -> rides & taches boostées
+WRINKLES_AGE_MIN = 35        # règle anti-âge : rides seulement si âge >= 35...
+WRINKLES_SCORE_OVERRIDE = 40  # ...ou score >= 40 (ou âge inconnu)
+
 # Tournures FR par condition et par bande de sévérité (accords inclus).
 CONDITION_PHRASES_FR = {
     "acne": {"moderate": "votre acné modérée", "severe": "votre acné marquée"},
@@ -73,10 +78,26 @@ def build_recommendations(
     skin_type: str,
     mappings: list[dict],
     products: dict[int, dict],
+    age: int | None = None,
+    skin_age_delta: int | None = None,
 ) -> list[Recommendation]:
-    """Conditions >= seuil -> produits mappés -> rang (sévérité x priorité) -> top 6."""
+    """Conditions >= seuil -> produits mappés -> rang (sévérité x priorité) -> top 6.
+
+    `age` (réel sinon estimé) filtre les lignes min_age/max_age et applique la
+    règle anti-âge ; `skin_age_delta` >= 3 booste rides et taches brunes.
+    """
     effective = {c: s for c, s in scores.items() if s >= RECOMMEND_THRESHOLD}
+    # Règle anti-âge : rides seulement si score fort OU âge >= 35 OU âge inconnu.
+    if (
+        "wrinkles" in effective
+        and age is not None
+        and age < WRINKLES_AGE_MIN
+        and effective["wrinkles"] < WRINKLES_SCORE_OVERRIDE
+    ):
+        del effective["wrinkles"]
     effective[f"skin_type_{skin_type}"] = SKIN_TYPE_BASE_SCORE
+
+    boosted = {"wrinkles", "dark_spots"} if (skin_age_delta or 0) >= 3 else set()
 
     candidates: dict[int, dict] = {}
     for mapping in mappings:
@@ -85,6 +106,12 @@ def build_recommendations(
             continue
         if mapping.get("skin_type") and mapping["skin_type"] != skin_type:
             continue
+        # Filtre d'âge par ligne : NULL = tout âge ; âge inconnu = pas de filtre.
+        if age is not None:
+            if mapping.get("min_age") is not None and age < mapping["min_age"]:
+                continue
+            if mapping.get("max_age") is not None and age > mapping["max_age"]:
+                continue
         product = products.get(mapping["product_id"])
         if not product or not product.get("active") or not product.get("in_stock"):
             continue
@@ -92,7 +119,10 @@ def build_recommendations(
             mapping["product_id"], {"rank": 0.0, "matched": []}
         )
         # priorité 0 traitée comme 1 pour ne pas annuler le rang.
-        entry["rank"] += effective[condition] * max(int(mapping.get("priority") or 0), 1)
+        weight = effective[condition] * max(int(mapping.get("priority") or 0), 1)
+        if condition in boosted:
+            weight *= AGE_DELTA_BOOST
+        entry["rank"] += weight
         if condition not in entry["matched"]:
             entry["matched"].append(condition)
 
@@ -129,6 +159,8 @@ def fetch_mappings(db: Session, condition_codes: list[str]) -> list[dict]:
             "skin_type": r.skin_type,
             "product_id": r.product_id,
             "priority": r.priority,
+            "min_age": r.min_age,
+            "max_age": r.max_age,
         }
         for r in rows
     ]
