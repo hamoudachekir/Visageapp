@@ -109,7 +109,7 @@ class FaceppAnalyzer(SkinAnalyzer):
         api_key: str | None = None,
         api_secret: str | None = None,
         endpoint: str | None = None,
-        timeout: float = 15.0,
+        timeout: float = 10.0,
     ):
         self.api_key = api_key if api_key is not None else os.getenv("FACEPP_API_KEY", "")
         self.api_secret = (

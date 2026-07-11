@@ -1,1 +1,1 @@
-"""Training scripts for YOLO models."""
+"""Scripts d'entraînement des modèles YOLO (Phase 2)."""
