@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import os
 
+import cv2
 import httpx
+import numpy as np
 
 from .analyzer import (
     FaceppQuotaError,
@@ -14,6 +16,35 @@ from .analyzer import (
 )
 
 FACEPP_ENDPOINT_DEFAULT = "https://api-us.faceplusplus.com/facepp/v1/skinanalyze"
+
+# Face++ skinanalyze rejette les photos haute résolution (INVALID_IMAGE_FACE
+# constaté sur un portrait 3356 px alors que 1080 px passe) : les photos de
+# téléphone (12 Mpx) échoueraient toutes. On plafonne donc le plus grand côté
+# avant l'envoi — valeur validée empiriquement le 2026-07-11.
+FACEPP_MAX_SIDE = 1080
+
+
+def downscale_for_facepp(image_bytes: bytes, max_side: int = FACEPP_MAX_SIDE) -> bytes:
+    """Réduit la photo sous `max_side` px (plus grand côté) pour Face++.
+
+    Renvoie les octets d'origine si la photo est déjà assez petite, ou si elle
+    n'est pas décodable (la validation qualité en amont — ou Face++ lui-même —
+    classifie alors l'erreur).
+    """
+    arr = np.frombuffer(image_bytes, dtype=np.uint8)
+    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    if img is None:
+        return image_bytes
+    height, width = img.shape[:2]
+    longest = max(height, width)
+    if longest <= max_side:
+        return image_bytes
+    scale = max_side / longest
+    resized = cv2.resize(img, (round(width * scale), round(height * scale)))
+    ok, buf = cv2.imencode(".jpg", resized, [cv2.IMWRITE_JPEG_QUALITY, 92])
+    if not ok:
+        return image_bytes
+    return buf.tobytes()
 
 # Sous-indicateurs de rides -> zone du visage.
 WRINKLE_FIELDS = {
@@ -131,6 +162,7 @@ class FaceppAnalyzer(SkinAnalyzer):
             raise FaceppUnavailableError(
                 "Clés Face++ manquantes (FACEPP_API_KEY / FACEPP_API_SECRET)."
             )
+        image_bytes = downscale_for_facepp(image_bytes)
         for _attempt in (1, 2):  # 1 essai + 1 retry sur timeout / erreur réseau / 5xx
             try:
                 response = await self._post(image_bytes)
