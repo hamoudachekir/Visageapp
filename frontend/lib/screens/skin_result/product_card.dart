@@ -28,7 +28,7 @@ class ProductCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          border: Border.all(color: AppColors.divider),
+          boxShadow: const [AppColors.cardShadow],
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
