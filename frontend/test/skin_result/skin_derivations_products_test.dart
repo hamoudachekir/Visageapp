@@ -116,6 +116,6 @@ void main() {
         priorityBrands: ['Vichy'],
       ),
     );
-    expect(views.first.product.brand, 'Vichy');
+    expect(views.map((v) => v.product.productId), [2, 1, 3]);
   });
 }
