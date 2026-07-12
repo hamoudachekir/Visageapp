@@ -81,4 +81,29 @@ void main() {
     ));
     expect(find.textContaining('Aucun produit correspondant'), findsOneWidget);
   });
+
+  testWidgets('expanded fires product tap and add callbacks', (tester) async {
+    ProductView? tapped;
+    ProductView? added;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: ConditionCard(
+          condition: condition,
+          health: 72,
+          severity: Severity.faible,
+          expanded: true,
+          onToggle: () {},
+          products: products,
+          onProductTap: (v) => tapped = v,
+          onProductAdd: (v) => added = v,
+        ),
+      ),
+    ));
+    await tester.tap(find.text('Crème apaisante'));
+    expect(tapped, isNotNull);
+    expect(tapped!.product.productId, 1);
+    await tester.tap(find.text('Ajouter'));
+    expect(added, isNotNull);
+    expect(added!.product.productId, 1);
+  });
 }
