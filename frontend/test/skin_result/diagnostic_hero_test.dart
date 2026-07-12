@@ -36,4 +36,20 @@ void main() {
     ));
     expect(find.textContaining('ans'), findsNothing);
   });
+
+  testWidgets('hides score ring when globalScore null', (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      home: Scaffold(
+        body: DiagnosticHero(
+          frontPhoto: null,
+          skinTypeLabel: 'Normale',
+          globalScore: null,
+          globalLabel: null,
+          estimatedAge: 30,
+        ),
+      ),
+    ));
+    expect(find.text('/100'), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
 }

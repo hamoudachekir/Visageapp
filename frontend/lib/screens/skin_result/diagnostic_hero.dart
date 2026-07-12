@@ -15,7 +15,7 @@ class DiagnosticHero extends StatelessWidget {
 
   const DiagnosticHero({
     super.key,
-    required this.frontPhoto,
+    this.frontPhoto,
     required this.skinTypeLabel,
     this.globalScore,
     this.globalLabel,
