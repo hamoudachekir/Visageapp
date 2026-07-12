@@ -82,4 +82,31 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Créer ma routine'));
     expect(created, isTrue);
   });
+
+  testWidgets('DetailedReport renders conditions in health-descending order',
+      (tester) async {
+    const conditions = [
+      SkinCondition(
+          code: 'a', labelFr: 'Alpha', score: 40, severity: 'moderate'),
+      SkinCondition(code: 'b', labelFr: 'Beta', score: 10, severity: 'mild'),
+      SkinCondition(code: 'c', labelFr: 'Gamma', score: 25, severity: 'mild'),
+    ];
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: DetailedReport(
+            conditions: conditions,
+            expanded: true,
+            onToggle: () {},
+          ),
+        ),
+      ),
+    ));
+    // reportConditions sorts by health (100 - score) descending: Beta(90) > Gamma(75) > Alpha(60)
+    final betaY = tester.getTopLeft(find.text('Beta')).dy;
+    final gammaY = tester.getTopLeft(find.text('Gamma')).dy;
+    final alphaY = tester.getTopLeft(find.text('Alpha')).dy;
+    expect(betaY, lessThan(gammaY));
+    expect(gammaY, lessThan(alphaY));
+  });
 }
