@@ -151,6 +151,18 @@ async def test_estimate_age_absorbe_les_echecs(monkeypatch):
     assert estimate is None and engine is None
 
 
+async def test_estimate_age_absorbe_les_erreurs_inattendues(monkeypatch):
+    class Broken:
+        name = "fake"
+
+        async def estimate(self, image_bytes):
+            raise TypeError("payload hors contrat")
+
+    monkeypatch.setattr(age_mod, "_make_estimator", lambda name: Broken())
+    estimate, engine = await estimate_age(b"x", mode="facepp")
+    assert estimate is None and engine is None
+
+
 async def test_estimate_age_auto_replie_sur_local(monkeypatch):
     class Quota:
         name = "facepp"

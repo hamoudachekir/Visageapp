@@ -226,7 +226,7 @@ def update_client(
     """Met à jour les champs fournis d'un client de la pharmacie courante."""
     client = _owned_client_or_404(client_id, pharmacy, db)
     data = payload.model_dump(exclude_unset=True)
-    for field in ("prenom", "nom", "telephone"):
+    for field in ("prenom", "nom", "telephone", "peau_sensible"):
         if field in data and (data[field] is None or not str(data[field]).strip()):
             raise HTTPException(
                 status_code=422, detail=f"Le champ {field} ne peut pas être vide."

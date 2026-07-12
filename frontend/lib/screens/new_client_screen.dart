@@ -59,7 +59,7 @@ class _NewClientScreenState extends ConsumerState<NewClientScreen> {
       lastDate: DateTime(now.year - 13, now.month, now.day),
       helpText: 'Date de naissance du client',
     );
-    if (picked != null) {
+    if (picked != null && mounted) {
       setState(() {
         _birthDate = picked;
         _birthDateController.text =

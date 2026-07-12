@@ -115,6 +115,19 @@ class ClientOut(ClientIn):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    # Redéclaré sans validateur : une ligne en base hors bornes (client devenu
+    # centenaire…) ne doit jamais faire échouer la sérialisation de sortie.
+    birth_date: date | None = None
+
+    # En Pydantic v2, un @field_validator est hérité indépendamment du type du
+    # champ : re-déclarer `birth_date` seul ne suffit pas à retirer le
+    # validateur de ClientIn. On le neutralise donc explicitement ici — la
+    # validation 13-110 ans reste appliquée en ENTRÉE (ClientIn/ClientUpdate),
+    # jamais en sortie.
+    @field_validator("birth_date")
+    @classmethod
+    def _valide_birth_date(cls, v: date | None) -> date | None:
+        return v
 
 
 class ClientUpdate(BaseModel):

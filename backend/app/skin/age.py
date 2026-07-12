@@ -200,4 +200,6 @@ async def estimate_age(
             logger.warning(
                 "Estimation d'âge (%s) échouée : %s", engine_name, exc.message_fr
             )
+        except Exception:  # garde-fou : l'âge ne doit jamais casser l'analyse peau
+            logger.exception("Estimation d'âge (%s) : erreur inattendue", engine_name)
     return None, None

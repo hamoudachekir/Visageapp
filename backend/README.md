@@ -104,6 +104,7 @@ produits rides/taches si la peau paraît 3 ans de plus que l'âge réel.
    FACEPP_API_KEY=...
    FACEPP_API_SECRET=...
    FACEPP_ENDPOINT=https://api-us.faceplusplus.com/facepp/v1/skinanalyze
+   FACEPP_DETECT_ENDPOINT=https://api-us.faceplusplus.com/facepp/v3/detect
    ANALYSIS_ENGINE=facepp      # facepp | local | auto
    SKIN_BLUR_THRESHOLD=60
    SKIN_YOLO_MODEL_PATH=       # Phase 2, vide = hooks YOLO inactifs

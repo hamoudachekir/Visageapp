@@ -105,3 +105,23 @@ def test_patch_prenom_vide_rejete(api):
     created = client.post("/v1/clients", json=_payload()).json()
     res = client.patch(f"/v1/clients/{created['id']}", json={"prenom": "  "})
     assert res.status_code == 422
+
+
+def test_client_out_tolere_une_date_hors_bornes():
+    """La validation 13-110 ans ne s'applique qu'en entrée, jamais en sortie."""
+    from datetime import date as date_type
+
+    from app.schemas import ClientOut
+
+    out = ClientOut(
+        id=1, prenom="A", nom="B", telephone="1",
+        birth_date=date_type(1900, 1, 1),
+    )
+    assert out.birth_date == date_type(1900, 1, 1)
+
+
+def test_patch_peau_sensible_null_rejete(api):
+    client, _ = api
+    created = client.post("/v1/clients", json=_payload()).json()
+    res = client.patch(f"/v1/clients/{created['id']}", json={"peau_sensible": None})
+    assert res.status_code == 422

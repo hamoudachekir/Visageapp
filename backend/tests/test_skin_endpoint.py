@@ -200,9 +200,13 @@ def test_bloc_age_complet_avec_birth_date(api, monkeypatch):
 
     s = Session()
     today = date.today()
+    # date fixe au 15 juin pour éviter le cas 29 février ; âge = 28 ans révolus.
+    birth = date(today.year - 28, 6, 15)
+    if (today.month, today.day) < (6, 15):
+        birth = date(today.year - 29, 6, 15)
     mien = Client(
         pharmacy_id=1, prenom="A", nom="B", telephone="2",
-        birth_date=today.replace(year=today.year - 28),
+        birth_date=birth,
     )
     s.add(mien)
     s.commit()
