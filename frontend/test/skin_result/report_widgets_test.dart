@@ -69,6 +69,7 @@ void main() {
     ));
     expect(find.text('Rides'), findsOneWidget);
     expect(find.textContaining('92/100'), findsOneWidget);
+    expect(find.text('Faible'), findsOneWidget);
   });
 
   testWidgets('RoutinePlaceholder fires onCreate', (tester) async {

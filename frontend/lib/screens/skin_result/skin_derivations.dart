@@ -22,7 +22,7 @@ String severityLabel(Severity s) {
 }
 
 /// Score « santé » 0-100 affiché (plus haut = plus sain).
-int healthScore(SkinCondition c) => 100 - c.score;
+int healthScore(SkinCondition c) => (100 - c.score).clamp(0, 100);
 
 /// Moyenne arrondie des scores santé ; null si aucune condition.
 int? globalScore(List<SkinCondition> conditions) {

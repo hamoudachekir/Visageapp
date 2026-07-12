@@ -20,7 +20,7 @@ class RoutinePlaceholder extends StatelessWidget {
       child: Column(
         children: [
           const Text(
-            'Créer ma routine',
+            'Votre routine de soin',
             style: TextStyle(
                 color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
           ),

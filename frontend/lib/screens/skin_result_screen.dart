@@ -95,9 +95,10 @@ class _SkinResultScreenState extends State<SkinResultScreen> {
                     onChanged: (f) => setState(() => _filter = f),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  if (priorities.isEmpty)
-                    _healthyState(context)
-                  else
+                  if (priorities.isEmpty) ...[
+                    _healthyState(context),
+                    const SizedBox(height: AppSpacing.md),
+                  ] else
                     ...priorities.map((c) {
                       final views = productViewsForCondition(
                         code: c.code,
@@ -113,9 +114,11 @@ class _SkinResultScreenState extends State<SkinResultScreen> {
                           severity: severityBand(c.score),
                           expanded: _expanded.contains(c.code),
                           onToggle: () => setState(() {
-                            _expanded.contains(c.code)
-                                ? _expanded.remove(c.code)
-                                : _expanded.add(c.code);
+                            if (_expanded.contains(c.code)) {
+                              _expanded.remove(c.code);
+                            } else {
+                              _expanded.add(c.code);
+                            }
                           }),
                           products: views,
                           onProductTap: (v) => ProductDetailSheet.show(

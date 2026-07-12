@@ -54,14 +54,14 @@ class DetailedReport extends StatelessWidget {
           ),
           if (expanded) ...[
             const Divider(height: AppSpacing.lg),
-            for (final c in ordered) _row(context, c),
+            for (final c in ordered) _row(c),
           ],
         ],
       ),
     );
   }
 
-  Widget _row(BuildContext context, SkinCondition c) {
+  Widget _row(SkinCondition c) {
     final health = healthScore(c);
     final band = severityBand(c.score);
     return Padding(
@@ -76,6 +76,23 @@ class DetailedReport extends StatelessWidget {
                     style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontWeight: FontWeight.w700)),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                margin: const EdgeInsets.only(right: AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: severityBg(band),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  _severityTag(band),
+                  style: TextStyle(
+                    color: severityColor(band),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
               Text('$health/100',
                   style: TextStyle(
@@ -96,5 +113,10 @@ class DetailedReport extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _severityTag(Severity s) {
+    final label = severityLabel(s);
+    return label[0].toUpperCase() + label.substring(1);
   }
 }
