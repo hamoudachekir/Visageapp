@@ -73,6 +73,7 @@ class CaptureFlow extends ConsumerWidget {
             MaterialPageRoute(
               builder: (_) => SkinResultScreen(
                 result: result,
+                frontPhoto: front,
                 onRetry: () => Navigator.of(context).popUntil((r) => r.isFirst),
               ),
             ),
