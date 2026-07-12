@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import logging
 import os
+import urllib.request
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -50,6 +52,29 @@ ZONE_LANDMARKS = {
 # Seuils de la logique « peau mixte » (fractions de pixels spéculaires).
 T_ZONE_OILY_MIN = 0.08
 CHEEK_MATTE_MAX = 0.02
+
+# Modèle FaceLandmarker (API Tasks mediapipe) — téléchargé une fois, ~3,7 Mo.
+FACE_LANDMARKER_URL = (
+    "https://storage.googleapis.com/mediapipe-models/face_landmarker/"
+    "face_landmarker/float16/latest/face_landmarker.task"
+)
+FACE_LANDMARKER_PATH = Path(__file__).resolve().parents[2] / "models" / "face_landmarker.task"
+
+
+def _ensure_face_landmarker_model() -> Path:
+    """Télécharge le modèle FaceLandmarker au premier usage (cache local)."""
+    if FACE_LANDMARKER_PATH.exists():
+        return FACE_LANDMARKER_PATH
+    FACE_LANDMARKER_PATH.parent.mkdir(parents=True, exist_ok=True)
+    logger.info("Téléchargement du modèle FaceLandmarker vers %s", FACE_LANDMARKER_PATH)
+    try:
+        urllib.request.urlretrieve(FACE_LANDMARKER_URL, FACE_LANDMARKER_PATH)
+    except Exception as exc:
+        raise EngineUnavailableError(
+            "Moteur local : téléchargement du modèle FaceLandmarker impossible "
+            "(vérifier la connexion réseau)."
+        ) from exc
+    return FACE_LANDMARKER_PATH
 
 
 def redness_score(img_bgr: np.ndarray, mask: np.ndarray | None = None) -> int:
@@ -96,16 +121,24 @@ class LocalAnalyzer(SkinAnalyzer):
     # ---------- chargements paresseux ----------
 
     def _get_face_mesh(self):
+        # mediapipe >= 0.10.3x n'expose plus l'API historique `mp.solutions` :
+        # on utilise l'API Tasks (FaceLandmarker), qui exige un fichier .task
+        # téléchargé une fois puis mis en cache dans backend/models/.
         if self._face_mesh is None:
             try:
-                import mediapipe as mp
+                from mediapipe.tasks import python as mp_python
+                from mediapipe.tasks.python import vision as mp_vision
             except ImportError as exc:
                 raise EngineUnavailableError(
                     "Moteur local : installer requirements-phase2.txt (mediapipe)."
                 ) from exc
-            self._face_mesh = mp.solutions.face_mesh.FaceMesh(
-                static_image_mode=True, max_num_faces=1, refine_landmarks=False
+            options = mp_vision.FaceLandmarkerOptions(
+                base_options=mp_python.BaseOptions(
+                    model_asset_path=str(_ensure_face_landmarker_model())
+                ),
+                num_faces=1,
             )
+            self._face_mesh = mp_vision.FaceLandmarker.create_from_options(options)
         return self._face_mesh
 
     def _get_skin_type_pipe(self):
@@ -124,12 +157,17 @@ class LocalAnalyzer(SkinAnalyzer):
     # ---------- étapes d'analyse ----------
 
     def _landmarks(self, img_bgr: np.ndarray) -> np.ndarray:
-        mesh = self._get_face_mesh()
-        result = mesh.process(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB))
-        if not result.multi_face_landmarks:
+        landmarker = self._get_face_mesh()
+        import mediapipe as mp
+
+        rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+        result = landmarker.detect(
+            mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+        )
+        if not result.face_landmarks:
             raise NoFaceError("aucun visage détecté (moteur local).")
         height, width = img_bgr.shape[:2]
-        landmarks = result.multi_face_landmarks[0].landmark
+        landmarks = result.face_landmarks[0]
         return np.array(
             [[p.x * width, p.y * height] for p in landmarks], dtype=np.int32
         )

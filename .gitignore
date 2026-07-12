@@ -69,3 +69,6 @@ Thumbs.db
 
 # Fichiers temporaires de travail
 tier1_dump.txt
+
+# Modèles binaires téléchargés (FaceLandmarker, YOLO ONNX)
+backend/models/

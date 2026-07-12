@@ -146,6 +146,8 @@ curl -X POST http://127.0.0.1:8000/v1/skin/analyze \
 pip install -r requirements-phase2.txt
 ```
 
+- Au premier usage, le moteur local télécharge automatiquement le modèle
+  FaceLandmarker de mediapipe (~4 Mo) dans `backend/models/` (gitignoré).
 - Rougeurs (OpenCV, CIELAB) et type de peau (HF
   `dima806/skin_types_image_detection` + logique T-zone) fonctionnent sans
   entraînement.
