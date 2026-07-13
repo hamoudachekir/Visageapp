@@ -107,6 +107,14 @@ class ProductDetailSheet extends StatelessWidget {
           const SizedBox(height: AppSpacing.xs),
           Text(p.reasonFr,
               style: Theme.of(context).textTheme.bodyMedium),
+          if (p.description != null && p.description!.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.md),
+            Text('Description',
+                style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: AppSpacing.xs),
+            Text(p.description!,
+                style: Theme.of(context).textTheme.bodyMedium),
+          ],
           const SizedBox(height: AppSpacing.lg),
           SizedBox(
             width: double.infinity,

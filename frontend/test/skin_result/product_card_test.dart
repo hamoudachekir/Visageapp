@@ -62,4 +62,37 @@ void main() {
     expect(find.textContaining('Recommandé pour vos rougeurs'), findsOneWidget);
     expect(find.text('Rougeurs et sensibilité'), findsOneWidget);
   });
+
+  testWidgets('detail sheet shows product description when present',
+      (tester) async {
+    const v = ProductView(
+      product: ProductRecommendation(
+        productId: 9,
+        name: 'Soin',
+        reasonFr: 'Pour vous.',
+        description: 'Formule apaisante sans parfum.',
+        matchedConditions: [],
+      ),
+      matchPercent: 80,
+    );
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => ElevatedButton(
+            onPressed: () => ProductDetailSheet.show(
+              context,
+              view: v,
+              matchedLabels: const [],
+              onAdd: () {},
+            ),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Description'), findsOneWidget);
+    expect(find.textContaining('Formule apaisante'), findsOneWidget);
+  });
 }
