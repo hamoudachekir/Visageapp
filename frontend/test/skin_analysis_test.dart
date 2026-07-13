@@ -76,4 +76,24 @@ void main() {
     };
     expect(SkinAnalysisResult.fromJson(json).age, isNull);
   });
+
+  test('ProductRecommendation parse la description', () {
+    final json = {
+      'analysis_id': 1,
+      'skin_type': 'oily',
+      'conditions': [],
+      'recommendations': [
+        {
+          'product_id': 7,
+          'name': 'Gel',
+          'reason_fr': 'r',
+          'description': 'Nettoie en douceur.',
+          'matched_conditions': [],
+        },
+      ],
+      'disclaimer_fr': 'x',
+    };
+    final result = SkinAnalysisResult.fromJson(json);
+    expect(result.recommendations.single.description, 'Nettoie en douceur.');
+  });
 }

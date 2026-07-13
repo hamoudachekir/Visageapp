@@ -58,6 +58,7 @@ class ProductRecommendation {
   final String? imageUrl;
   final String reasonFr;
   final List<String> matchedConditions;
+  final String? description;
 
   const ProductRecommendation({
     required this.productId,
@@ -67,6 +68,7 @@ class ProductRecommendation {
     this.imageUrl,
     required this.reasonFr,
     this.matchedConditions = const [],
+    this.description,
   });
 
   factory ProductRecommendation.fromJson(Map<String, dynamic> json) {
@@ -79,6 +81,7 @@ class ProductRecommendation {
       reasonFr: json['reason_fr'] as String? ?? '',
       matchedConditions:
           (json['matched_conditions'] as List?)?.cast<String>() ?? const [],
+      description: json['description'] as String?,
     );
   }
 }
