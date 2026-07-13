@@ -41,8 +41,11 @@ class _ProductFilterBarState extends State<ProductFilterBar> {
   }
 
   void _removeBrand(String brand) {
+    final next = [..._filter.priorityBrands]..remove(brand);
     _emit(_filter.copyWith(
-        priorityBrands: [..._filter.priorityBrands]..remove(brand)));
+      priorityBrands: next,
+      useAllBrands: next.isEmpty ? true : _filter.useAllBrands,
+    ));
   }
 
   void _clearBrands() =>

@@ -99,4 +99,33 @@ void main() {
     expect(emitted, isNotNull);
     expect(emitted!.priorityBrands, ['Avene', 'Vichy']);
   });
+
+  testWidgets('toggling all-brands switch ON clears priorityBrands',
+      (tester) async {
+    FilterState? emitted;
+    await tester.pumpWidget(_host(
+      filter: const FilterState(useAllBrands: false, priorityBrands: ['Vichy']),
+      catalog: const ['Avene', 'Vichy'],
+      onChanged: (f) => emitted = f,
+    ));
+    await tester.tap(find.byType(Switch));
+    await tester.pump();
+    expect(emitted, isNotNull);
+    expect(emitted!.useAllBrands, isTrue);
+    expect(emitted!.priorityBrands, isEmpty);
+  });
+
+  testWidgets('removing the last priority brand re-enables all brands',
+      (tester) async {
+    FilterState? emitted;
+    await tester.pumpWidget(_host(
+      filter: const FilterState(useAllBrands: false, priorityBrands: ['Vichy']),
+      catalog: const ['Avene', 'Vichy'],
+      onChanged: (f) => emitted = f,
+    ));
+    await tester.tap(find.byIcon(Icons.close));
+    expect(emitted, isNotNull);
+    expect(emitted!.priorityBrands, isEmpty);
+    expect(emitted!.useAllBrands, isTrue);
+  });
 }
