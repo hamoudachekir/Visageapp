@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from .. import auth as auth_module
 from ..db import get_db
-from ..models import Client, Pharmacy, SkinAnalysis
+from ..models import Client, Pharmacy, SkinAnalysis, VisageProduct
 from . import engine as engine_mod
 from . import quality
 from .aggregate import aggregate
@@ -24,7 +24,13 @@ from .analyzer import (
 from .age import estimate_age, real_age_from_birth_date, skin_age_message_fr
 from .labels import DISCLAIMER_FR, LABELS_FR, severity
 from .recommend import build_recommendations, fetch_mappings, fetch_products
-from .schemas import AgeOut, ConditionOut, RecommendationOut, SkinAnalyzeResponse
+from .schemas import (
+    AgeOut,
+    BrandsResponse,
+    ConditionOut,
+    RecommendationOut,
+    SkinAnalyzeResponse,
+)
 
 logger = logging.getLogger("skin")
 
@@ -173,3 +179,19 @@ async def analyze_skin(
         age=age_block,
         disclaimer_fr=DISCLAIMER_FR,
     )
+
+
+@router.get("/v1/skin/brands", response_model=BrandsResponse)
+def list_brands(
+    pharmacy: Pharmacy = Depends(auth_module.get_current_pharmacy),
+    db: Session = Depends(get_db),
+) -> BrandsResponse:
+    """Marques distinctes des produits actifs (catalogue du filtre)."""
+    rows = (
+        db.query(VisageProduct.brand)
+        .filter(VisageProduct.active.is_(True), VisageProduct.brand.isnot(None))
+        .distinct()
+        .all()
+    )
+    brands = sorted({r[0].strip() for r in rows if r[0] and r[0].strip()})
+    return BrandsResponse(brands=brands)

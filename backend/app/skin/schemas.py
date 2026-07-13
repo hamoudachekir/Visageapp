@@ -40,3 +40,7 @@ class SkinAnalyzeResponse(BaseModel):
     recommendations: list[RecommendationOut]
     age: AgeOut | None = None
     disclaimer_fr: str
+
+
+class BrandsResponse(BaseModel):
+    brands: list[str]

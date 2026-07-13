@@ -243,3 +243,25 @@ def test_bloc_age_sans_birth_date(api, monkeypatch):
     assert age["estimated_age"] == 32
     assert age["real_age"] is None and age["skin_age_delta"] is None
     assert age["message_fr"] == "Votre peau paraît 32 ans (estimation)."
+
+
+def test_brands_liste_triee(api):
+    client, _ = api
+    res = client.get("/v1/skin/brands")
+    assert res.status_code == 200
+    assert res.json()["brands"] == ["A", "B"]
+
+
+def test_brands_exclut_inactifs_null_et_vides(api):
+    client, Session = api
+    s = Session()
+    s.add_all([
+        VisageProduct(id=3, name="X", brand="A", price=1, in_stock=True, active=False),
+        VisageProduct(id=4, name="Y", brand=None, price=1, in_stock=True, active=True),
+        VisageProduct(id=5, name="Z", brand="  ", price=1, in_stock=True, active=True),
+        VisageProduct(id=6, name="W", brand="Cerave", price=1, in_stock=True, active=True),
+    ])
+    s.commit()
+    s.close()
+    res = client.get("/v1/skin/brands")
+    assert res.json()["brands"] == ["A", "B", "Cerave"]
