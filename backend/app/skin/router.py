@@ -194,5 +194,8 @@ def list_brands(
         .distinct()
         .all()
     )
-    brands = sorted({r[0].strip() for r in rows if r[0] and r[0].strip()})
+    # casefold : tri alphabétique insensible à la casse (marques mixtes).
+    brands = sorted(
+        {r[0].strip() for r in rows if r[0] and r[0].strip()}, key=str.casefold
+    )
     return BrandsResponse(brands=brands)
