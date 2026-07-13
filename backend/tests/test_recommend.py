@@ -148,3 +148,17 @@ def test_boost_delta_rides_et_taches():
         scores, "oily", mappings, products, age=40, skin_age_delta=4
     )
     assert avec_boost[0].product_id == 1
+
+
+def test_recommendation_inclut_description():
+    scores = {"acne": 62}
+    mappings = [{
+        "condition_code": "acne", "product_id": 1, "priority": 5,
+        "skin_type": None, "min_age": None, "max_age": None,
+    }]
+    products = {1: {
+        "name": "Gel", "brand": "A", "price": 10.0, "image_url": None,
+        "description": "Nettoie en douceur.", "in_stock": True, "active": True,
+    }}
+    recs = build_recommendations(scores, "oily", mappings, products)
+    assert recs[0].description == "Nettoie en douceur."

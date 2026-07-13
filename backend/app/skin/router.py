@@ -152,6 +152,7 @@ async def analyze_skin(
             brand=r.brand,
             price=r.price,
             image_url=r.image_url,
+            description=r.description,
             reason_fr=r.reason_fr,
             matched_conditions=r.matched_conditions,
         )

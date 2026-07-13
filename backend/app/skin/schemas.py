@@ -18,6 +18,7 @@ class RecommendationOut(BaseModel):
     brand: str | None = None
     price: float | None = None
     image_url: str | None = None
+    description: str | None = None
     reason_fr: str
     matched_conditions: list[str] = []
 

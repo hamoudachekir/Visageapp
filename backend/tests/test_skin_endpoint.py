@@ -265,3 +265,15 @@ def test_brands_exclut_inactifs_null_et_vides(api):
     s.close()
     res = client.get("/v1/skin/brands")
     assert res.json()["brands"] == ["A", "B", "Cerave"]
+
+
+def test_description_dans_reco(api):
+    client, Session = api
+    s = Session()
+    p = s.get(VisageProduct, 1)
+    p.description = "Nettoie en douceur."
+    s.commit()
+    s.close()
+    res = client.post("/v1/skin/analyze", files=_files())
+    reco = res.json()["recommendations"][0]
+    assert reco["description"] == "Nettoie en douceur."

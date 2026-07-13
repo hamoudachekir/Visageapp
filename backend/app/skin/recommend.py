@@ -55,6 +55,7 @@ class Recommendation:
     brand: str | None
     price: float | None
     image_url: str | None
+    description: str | None
     reason_fr: str
     matched_conditions: list[str]
 
@@ -137,6 +138,7 @@ def build_recommendations(
                 brand=product.get("brand"),
                 price=product.get("price"),
                 image_url=product.get("image_url"),
+                description=product.get("description"),
                 reason_fr=build_reason_fr(entry["matched"], scores, skin_type),
                 matched_conditions=[
                     c for c in entry["matched"] if not c.startswith("skin_type_")
@@ -179,6 +181,7 @@ def fetch_products(db: Session, product_ids: list[int]) -> dict[int, dict]:
             "brand": r.brand,
             "price": float(r.price) if r.price is not None else None,
             "image_url": r.image_url,
+            "description": r.description,
             "in_stock": bool(r.in_stock),
             "active": bool(r.active),
         }
