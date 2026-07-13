@@ -71,4 +71,21 @@ void main() {
     ));
     expect(find.textContaining('Peau globalement saine'), findsOneWidget);
   });
+
+  testWidgets('brandCatalog param feeds the filter bar', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: SkinResultScreen(
+        result: sample(),
+        onRetry: () {},
+        brandCatalog: const ['Avene', 'Vichy', 'Cerave'],
+      ),
+    ));
+    // Open the filter panel (scroll it into view first: the default test
+    // viewport is shorter than the full page).
+    await tester.ensureVisible(find.text('Filtrer et trier les produits'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Filtrer et trier les produits'));
+    await tester.pumpAndSettle();
+    expect(find.text('Cerave'), findsOneWidget); // from the catalog, not results
+  });
 }

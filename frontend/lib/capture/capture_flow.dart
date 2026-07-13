@@ -69,15 +69,21 @@ class CaptureFlow extends ConsumerWidget {
             closeup: closeup,
             clientId: clientId,
           ),
-          onResult: (result) => Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (_) => SkinResultScreen(
-                result: result,
-                frontPhoto: front,
-                onRetry: () => Navigator.of(context).popUntil((r) => r.isFirst),
+          onResult: (result) async {
+            final catalog = await api.fetchBrands();
+            if (!context.mounted) return;
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => SkinResultScreen(
+                  result: result,
+                  frontPhoto: front,
+                  brandCatalog: catalog,
+                  onRetry: () =>
+                      Navigator.of(context).popUntil((r) => r.isFirst),
+                ),
               ),
-            ),
-          ),
+            );
+          },
           onRetry: () => Navigator.of(context).pop(),
         ),
       ),

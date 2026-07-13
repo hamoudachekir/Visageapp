@@ -22,12 +22,14 @@ class SkinResultScreen extends StatefulWidget {
   final SkinAnalysisResult result;
   final VoidCallback onRetry;
   final File? frontPhoto;
+  final List<String> brandCatalog;
 
   const SkinResultScreen({
     super.key,
     required this.result,
     required this.onRetry,
     this.frontPhoto,
+    this.brandCatalog = const [],
   });
 
   @override
@@ -60,7 +62,9 @@ class _SkinResultScreenState extends State<SkinResultScreen> {
     final flagged = flaggedCodes(result.conditions);
     final priorities = priorityConditions(result.conditions);
     final gScore = globalScore(result.conditions);
-    final brands = brandsInResults(result.recommendations);
+    final catalog = widget.brandCatalog.isNotEmpty
+        ? widget.brandCatalog
+        : brandsInResults(result.recommendations);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -91,7 +95,7 @@ class _SkinResultScreenState extends State<SkinResultScreen> {
                     onToggleExpanded: () => setState(
                         () => _filterExpanded = !_filterExpanded),
                     filter: _filter,
-                    catalog: brands,
+                    catalog: catalog,
                     onChanged: (f) => setState(() => _filter = f),
                   ),
                   const SizedBox(height: AppSpacing.md),
