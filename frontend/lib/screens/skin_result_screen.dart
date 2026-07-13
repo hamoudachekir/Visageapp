@@ -91,7 +91,7 @@ class _SkinResultScreenState extends State<SkinResultScreen> {
                     onToggleExpanded: () => setState(
                         () => _filterExpanded = !_filterExpanded),
                     filter: _filter,
-                    brands: brands,
+                    catalog: brands,
                     onChanged: (f) => setState(() => _filter = f),
                   ),
                   const SizedBox(height: AppSpacing.md),
