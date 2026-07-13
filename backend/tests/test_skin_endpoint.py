@@ -256,7 +256,7 @@ def test_brands_exclut_inactifs_null_et_vides(api):
     client, Session = api
     s = Session()
     s.add_all([
-        VisageProduct(id=3, name="X", brand="A", price=1, in_stock=True, active=False),
+        VisageProduct(id=3, name="X", brand="Inactivo", price=1, in_stock=True, active=False),
         VisageProduct(id=4, name="Y", brand=None, price=1, in_stock=True, active=True),
         VisageProduct(id=5, name="Z", brand="  ", price=1, in_stock=True, active=True),
         VisageProduct(id=6, name="W", brand="Cerave", price=1, in_stock=True, active=True),
