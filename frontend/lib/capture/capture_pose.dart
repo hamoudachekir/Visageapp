@@ -1,7 +1,21 @@
 import 'package:flutter/material.dart';
 
-/// Les 4 vues à capturer, dans l'ordre.
-enum CapturePose { face, profilGauche, profilDroit, dessus }
+/// Les 4 vues à capturer, dans l'ordre : face, profils, puis gros plan du front.
+enum CapturePose { face, profilGauche, profilDroit, front }
+
+/// Libellé court utilisé dans les vignettes (capture, validation).
+String shortPoseLabel(CapturePose pose) {
+  switch (pose) {
+    case CapturePose.face:
+      return 'Face';
+    case CapturePose.profilGauche:
+      return 'Profil G.';
+    case CapturePose.profilDroit:
+      return 'Profil D.';
+    case CapturePose.front:
+      return 'Front';
+  }
+}
 
 /// Configuration d'une vue : libellé, instruction, icône et seuils de pose.
 class PoseConfig {
@@ -20,7 +34,7 @@ class PoseConfig {
   final double minFaceRatio;
   final double maxFaceRatio;
 
-  // Cette vue exige-t-elle un visage détecté ? (false pour la vue du dessus)
+  // Cette vue exige-t-elle un visage détecté ?
   final bool requiresFace;
 
   const PoseConfig({
@@ -66,11 +80,18 @@ const List<PoseConfig> kCaptureFlow = [
     yawMin: -58,
     yawMax: -30,
   ),
+  // Gros plan du front : visage droit mais TRÈS rapproché (minFaceRatio élevé),
+  // pour capturer le détail de la peau du front. Tolérance pitch large car on
+  // penche souvent un peu la tête pour présenter le front.
   PoseConfig(
-    pose: CapturePose.dessus,
-    label: 'Vue du dessus (cheveux)',
-    instruction: 'Penchez la tête en avant pour montrer le cuir chevelu',
-    icon: Icons.content_cut,
-    requiresFace: false,
+    pose: CapturePose.front,
+    label: 'Vue du front (gros plan)',
+    instruction: 'Rapprochez le visage de la caméra pour cadrer le front',
+    icon: Icons.center_focus_strong,
+    yawMin: -14,
+    yawMax: 14,
+    pitchTol: 22,
+    minFaceRatio: 0.22,
+    maxFaceRatio: 0.9,
   ),
 ];

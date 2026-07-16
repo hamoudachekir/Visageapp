@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import 'api_config.dart';
+
 /// Résultat de l'analyse renvoyé par le backend `/v1/analyze`.
 class AnalysisResult {
   final bool ok;
@@ -44,7 +46,7 @@ class AnalysisApi {
   /// (ex. `http://192.168.1.20:8000`).
   final String baseUrl;
 
-  AnalysisApi({this.baseUrl = 'http://10.0.2.2:8000'});
+  AnalysisApi({this.baseUrl = ApiConfig.baseUrl});
 
   /// Envoie la photo de face au backend et renvoie l'âge + le sexe.
   Future<AnalysisResult> analyzeFace(File faceImage) async {

@@ -76,13 +76,12 @@ class FacePoseValidator {
   static String _yawHint(PoseConfig cfg, {required bool tooLow}) {
     switch (cfg.pose) {
       case CapturePose.face:
+      case CapturePose.front:
         return 'Regardez droit devant';
       case CapturePose.profilGauche:
         return tooLow ? 'Tournez plus vers la gauche' : 'Tournez un peu moins';
       case CapturePose.profilDroit:
         return tooLow ? 'Tournez un peu moins' : 'Tournez plus vers la droite';
-      case CapturePose.dessus:
-        return '';
     }
   }
 }

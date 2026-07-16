@@ -107,7 +107,7 @@ produits rides/taches si la peau paraît 3 ans de plus que l'âge réel.
    FACEPP_DETECT_ENDPOINT=https://api-us.faceplusplus.com/facepp/v3/detect
    ANALYSIS_ENGINE=facepp      # facepp | local | auto
    SKIN_BLUR_THRESHOLD=60
-   SKIN_YOLO_MODEL_PATH=       # Phase 2, vide = hooks YOLO inactifs
+   SKIN_YOLO_MODEL_PATH=models/best.onnx  # vide = hooks YOLO inactifs
    ```
 
 ### Recommandations produits
@@ -152,12 +152,20 @@ pip install -r requirements-phase2.txt
   `dima806/skin_types_image_detection` + logique T-zone) fonctionnent sans
   entraînement.
 - Conditions (acné, points noirs, taches, pores, rides) : entraîner YOLOv8
-  sur Google Colab avec `train/train_yolo.py` (datasets gratuits sur
-  <https://universe.roboflow.com> — fusionner en un projet à 5 classes dans
-  l'ordre de `CLASS_TO_CONDITION` de `app/skin/local.py`), puis copier
-  l'export ONNX sur le serveur et renseigner `SKIN_YOLO_MODEL_PATH`.
+  sur Google Colab avec `models/train_skin_yolo_colab.py` (ou
+  `train/train_skin_yolo_colab.ipynb` / `train/train_yolo.py`). Config
+  recommandée : `yolov8s.pt`, `IMGSZ=1024`, `EPOCHS=200`. Datasets sur
+  <https://universe.roboflow.com> — fusionner en un projet à **5 classes**
+  dans l'ordre de `CLASS_TO_CONDITION` (`app/skin/local.py`), viser
+  ≥300 images et ≥500 boxes par classe (surtout blackheads / enlarged_pores).
+  Copier l'export vers `models/best.onnx` et
+  `SKIN_YOLO_MODEL_PATH=models/best.onnx`.
+- Helpers : `python -m train.diagnose_dataset --data …`,
+  `python -m train.evaluate_run --run …`,
+  `python -m train.verify_onnx`, `python -m train.smoke_yolo`.
+  Env snippet : `train/skin_yolo.env.example`.
 - Une fois validé, passer `ANALYSIS_ENGINE=auto` (Face++ avec repli local)
-  ou `local`.
+  ou `local`. Cible mAP50 réaliste après boucles data : ~0.3–0.5 (pas ~0.8).
 
 > ⚠️ Les résultats (acné, rougeurs/rosacée…) sont une aide cosmétique, pas un
 > diagnostic médical : le disclaimer doit rester visible partout où ils sont

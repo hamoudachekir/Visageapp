@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../services/analysis_api.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
+import '../widgets/app_header.dart';
+import '../widgets/custom_button.dart';
+import '../widgets/custom_card.dart';
 
-/// Affiche le résultat de l'analyse : sexe + âge estimé.
+/// Affiche le résultat de l'analyse : sexe + âge estimé (thème clair Lumina).
 class ResultScreen extends StatelessWidget {
   final AnalysisResult result;
   final VoidCallback onRetry;
@@ -13,20 +18,20 @@ class ResultScreen extends StatelessWidget {
     required this.onRetry,
   });
 
-  static const _teal = Color(0xFF1ABC9C);
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Résultat'),
-        backgroundColor: _teal,
-        foregroundColor: Colors.white,
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: result.ok ? _buildSuccess(context) : _buildFailure(context),
+      backgroundColor: AppColors.background,
+      appBar: const AppHeader(title: 'Diagnostic'),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: result.ok ? _buildSuccess(context) : _buildFailure(context),
+            ),
+          ),
         ),
       ),
     );
@@ -38,62 +43,80 @@ class ResultScreen extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.check_circle, color: _teal, size: 72),
-        const SizedBox(height: 24),
+        Container(
+          width: 84,
+          height: 84,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.positiveLight,
+          ),
+          child: const Icon(Icons.check_rounded,
+              color: AppColors.positive, size: 46),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Text(
+          'Votre diagnostic',
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
+        const SizedBox(height: AppSpacing.lg),
         _InfoCard(
           icon: sexe == 'Homme' ? Icons.male : Icons.female,
           label: 'Sexe',
           value: sexe,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.sm),
         _InfoCard(
-          icon: Icons.cake,
+          icon: Icons.cake_outlined,
           label: 'Âge estimé',
           value: '$age ans',
         ),
         if (result.confiance != null) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           Text(
             'Confiance de détection : ${(result.confiance! * 100).toStringAsFixed(0)} %',
-            style: const TextStyle(color: Colors.black54),
+            style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
-        const SizedBox(height: 40),
-        _retryButton(),
+        const SizedBox(height: AppSpacing.xl),
+        CustomButton(
+          label: 'Refaire la capture',
+          icon: Icons.refresh,
+          onPressed: onRetry,
+        ),
       ],
     );
   }
 
   Widget _buildFailure(BuildContext context) {
     final raison = result.raison == 'aucun_visage_detecte'
-        ? 'Aucun visage n\'a été détecté sur la photo de face.'
-        : 'L\'analyse a échoué (${result.raison ?? "raison inconnue"}).';
+        ? "Aucun visage n'a été détecté sur la photo de face."
+        : "L'analyse a échoué (${result.raison ?? 'raison inconnue'}).";
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.error_outline, color: Colors.redAccent, size: 72),
-        const SizedBox(height: 24),
+        Container(
+          width: 84,
+          height: 84,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.negativeLight,
+          ),
+          child: const Icon(Icons.error_outline,
+              color: AppColors.negative, size: 46),
+        ),
+        const SizedBox(height: AppSpacing.lg),
         Text(
           raison,
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 16),
+          style: Theme.of(context).textTheme.titleMedium,
         ),
-        const SizedBox(height: 40),
-        _retryButton(),
+        const SizedBox(height: AppSpacing.xl),
+        CustomButton(
+          label: 'Refaire la capture',
+          icon: Icons.refresh,
+          onPressed: onRetry,
+        ),
       ],
-    );
-  }
-
-  Widget _retryButton() {
-    return ElevatedButton.icon(
-      onPressed: onRetry,
-      icon: const Icon(Icons.refresh),
-      label: const Text('Refaire la capture'),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: _teal,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-      ),
     );
   }
 }
@@ -111,30 +134,35 @@ class _InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Row(
-          children: [
-            Icon(icon, size: 36, color: const Color(0xFF1ABC9C)),
-            const SizedBox(width: 20),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: const TextStyle(color: Colors.black54)),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
+    return CustomCard(
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: AppColors.primaryLight,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
             ),
-          ],
-        ),
+            child: Icon(icon, color: AppColors.primary, size: 24),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: Theme.of(context).textTheme.bodySmall),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
