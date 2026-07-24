@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from .db import get_db
 from .models import Pharmacy
 
-load_dotenv()
+load_dotenv(override=True)
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-me")
 ALGORITHM = "HS256"

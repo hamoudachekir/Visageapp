@@ -96,7 +96,7 @@ def evaluate(run: Path) -> int:
     print(
         "\nPer-class: open confusion_matrix.png / PR_curve.png. "
         f"Any class stuck near 0 (<{WEAK_CLASS_MAP50}) after a real data fix "
-        "-> tighten labels and add domain photos (keep 5 classes)."
+        "-> tighten labels and add domain photos (4 classes, no blackheads)."
     )
     print(
         "\nExport: copy weights/best.onnx -> backend/models/best.onnx "

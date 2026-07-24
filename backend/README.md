@@ -155,9 +155,10 @@ pip install -r requirements-phase2.txt
   sur Google Colab avec `models/train_skin_yolo_colab.py` (ou
   `train/train_skin_yolo_colab.ipynb` / `train/train_yolo.py`). Config
   recommandée : `yolov8s.pt`, `IMGSZ=1024`, `EPOCHS=200`. Datasets sur
-  <https://universe.roboflow.com> — fusionner en un projet à **5 classes**
-  dans l'ordre de `CLASS_TO_CONDITION` (`app/skin/local.py`), viser
-  ≥300 images et ≥500 boxes par classe (surtout blackheads / enlarged_pores).
+  <https://universe.roboflow.com> — fusionner en un projet à **4 classes**
+  (`acne`, `dark_spots`, `enlarged_pores`, `wrinkles`) dans l'ordre de
+  `CLASS_TO_CONDITION` (`app/skin/local.py`), viser ≥300 images et ≥500 boxes
+  par classe (surtout acne / dark_spots).
   Copier l'export vers `models/best.onnx` et
   `SKIN_YOLO_MODEL_PATH=models/best.onnx`.
 - Helpers : `python -m train.diagnose_dataset --data …`,

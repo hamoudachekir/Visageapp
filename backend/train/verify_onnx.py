@@ -20,7 +20,7 @@ from pathlib import Path
 import numpy as np
 
 # CLASS_TO_CONDITION order must stay in sync with the trained model.
-EXPECTED_CLASSES = 5
+EXPECTED_CLASSES = 4
 
 
 def verify(path: Path) -> int:
@@ -54,7 +54,7 @@ def verify(path: Path) -> int:
     # LocalAnalyzer maps cls 0..4 → 5 conditions
     print(
         f"Expected class ids 0..{EXPECTED_CLASSES - 1} "
-        "(acne, blackheads, dark_spots, enlarged_pores, wrinkles)"
+        "(acne, dark_spots, enlarged_pores, wrinkles)"
     )
 
     env_path = os.getenv("SKIN_YOLO_MODEL_PATH", "").strip()

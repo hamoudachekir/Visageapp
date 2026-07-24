@@ -6,12 +6,13 @@
 Ce notebook entraîne le détecteur de conditions de peau et exporte le modèle
 ONNX attendu par le backend (`SKIN_YOLO_MODEL_PATH=models/best.onnx`).
 
-## Amélioration 5 classes (garder blackheads) — ordre des étapes
+## Amélioration 4 classes (sans blackheads) — ordre des étapes
 
 1. **Step 0** — Lancer avec `MODEL=yolov8s.pt`, `IMGSZ=1024`, `EPOCHS=200`.
    Vérifier dans les logs ~11M paramètres (pas ~3M = nano).
-2. **Step 1** — Roboflow : Health Check, réparer blackheads, viser ≥300 images
-   et ≥500 boxes / classe, puis nouvelle version avec augmentations légères.
+2. **Step 1** — Roboflow : retirer/exclure `blackheads`, remap classes dans
+   l'ordre ci-dessous, viser ≥300 images et ≥500 boxes / classe, nouvelle
+   version avec augmentations légères.
 3. **Step 2** — Mettre `VERSION` à la nouvelle version Roboflow, relancer.
 4. **Step 3** — Lire `results.png`, `confusion_matrix.png`, `PR_curve.png`.
 5. **Step 4** — Télécharger `best.onnx` → `backend/models/best.onnx`,
@@ -22,10 +23,9 @@ Ordre des classes (doit matcher `CLASS_TO_CONDITION` dans `app/skin/local.py`) :
 | id | classe |
 |----|--------|
 | 0 | acne |
-| 1 | blackheads |
-| 2 | dark_spots |
-| 3 | enlarged_pores |
-| 4 | wrinkles |
+| 1 | dark_spots |
+| 2 | enlarged_pores |
+| 3 | wrinkles |
 
 **Avant de lancer :** Runtime → Change runtime type → **T4 GPU**, puis Run all.
 """
@@ -50,11 +50,11 @@ if not ROBOFLOW_API_KEY:
 
 WORKSPACE = "hamoudas-workspace"
 PROJECT = "face-skin-problems-e7y0m"
-VERSION = 2  # bump après Step 1 (ex. 3) quand une nouvelle version Roboflow existe
+VERSION = 4  # 4-class export (sans blackheads) — bump après nouvelle version Roboflow
 EPOCHS = 200
 IMGSZ = 1024
 MODEL = "yolov8s.pt"  # ~11M params — pas yolov8n (~3M)
-# Floors Step 1 (diagnostic dataset) — blackheads / enlarged_pores d'abord
+# Floors Step 1 (diagnostic dataset) — acne / dark_spots en priorité
 MIN_IMAGES_PER_CLASS = 300
 MIN_BOXES_PER_CLASS = 500
 
@@ -82,7 +82,7 @@ names = yaml.safe_load(open(DATA_YAML))["names"]
 if isinstance(names, dict):
     names = [names[i] for i in sorted(names)]
 print("Classes du dataset :", names)
-attendu = ["acne", "blackheads", "dark_spots", "enlarged_pores", "wrinkles"]
+attendu = ["acne", "dark_spots", "enlarged_pores", "wrinkles"]
 assert [n.lower().replace("-", "_") for n in names] == attendu, (
     f"Ordre des classes incorrect ! Attendu {attendu}, obtenu {names}. "
     "Corriger le projet Roboflow avant d'entraîner."
@@ -123,7 +123,7 @@ if weak:
         f"{MIN_BOXES_PER_CLASS}+ boxes): {weak}"
     )
     print(
-        "Roboflow Universe: search acne / blackheads / dark spots / "
+        "Roboflow Universe: search acne / dark spots / "
         "enlarged pores / wrinkles → clone → merge (keep class order) → new version."
     )
 else:
@@ -174,15 +174,18 @@ for name in (
     print(f"  {'✔' if path.exists() else '·'} {path}")
 
 # Export ONNX — nms=True obligatoire (LocalAnalyzer._yolo_scores)
-onnx_path = YOLO(BEST).export(format="onnx", nms=True, imgsz=IMGSZ)
+onnx_path = Path(YOLO(BEST).export(format="onnx", nms=True, imgsz=IMGSZ))
 print("Modèle ONNX exporté :", onnx_path)
 
-# Copie locale Colab sous le nom attendu par le backend
+# Copie locale Colab sous le nom attendu par le backend (skip if already there)
 import shutil
 
 best_onnx = save_dir / "weights" / "best.onnx"
-shutil.copy(onnx_path, best_onnx)
-print(f"Copié vers : {best_onnx}")
+if onnx_path.resolve() != best_onnx.resolve():
+    shutil.copy(onnx_path, best_onnx)
+else:
+    best_onnx = onnx_path
+print(f"ONNX prêt : {best_onnx}")
 
 from google.colab import files
 

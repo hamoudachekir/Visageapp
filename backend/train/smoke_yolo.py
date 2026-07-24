@@ -33,7 +33,6 @@ def main() -> int:
 
     assert list(CLASS_TO_CONDITION.values()) == [
         "acne",
-        "blackheads",
         "dark_spots",
         "enlarged_pores",
         "wrinkles",

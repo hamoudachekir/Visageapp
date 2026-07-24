@@ -191,11 +191,18 @@ async def estimate_age(
     front_bytes: bytes, mode: str | None = None
 ) -> tuple[AgeEstimate | None, str | None]:
     """Estime l'âge sur la photo de face. N'échoue jamais : (None, None) au pire."""
-    mode = mode or os.getenv("ANALYSIS_ENGINE", "facepp")
+    mode = (mode or os.getenv("ANALYSIS_ENGINE", "facepp") or "facepp").strip()
     for engine_name in _MODES.get(mode, ["facepp"]):
         try:
             estimator = _make_estimator(engine_name)
-            return await estimator.estimate(front_bytes), estimator.name
+            result = await estimator.estimate(front_bytes)
+            logger.info(
+                "Estimation d'âge OK (%s) : age=%s sexe=%s",
+                engine_name,
+                result.age,
+                result.sexe,
+            )
+            return result, estimator.name
         except SkinEngineError as exc:
             logger.warning(
                 "Estimation d'âge (%s) échouée : %s", engine_name, exc.message_fr

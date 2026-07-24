@@ -32,12 +32,12 @@ from .analyzer import (
 logger = logging.getLogger("skin.local")
 
 # Ordre des classes du modèle YOLO (doit correspondre au data.yaml d'entraînement).
+# 4 classes : blackheads retiré (mAP trop bas). Face++ peut encore remplir blackheads.
 CLASS_TO_CONDITION = {
     0: "acne",
-    1: "blackheads",
-    2: "dark_spots",
-    3: "enlarged_pores",
-    4: "wrinkles",
+    1: "dark_spots",
+    2: "enlarged_pores",
+    3: "wrinkles",
 }
 
 # Indices de landmarks FaceMesh (468 points) approximant chaque zone.

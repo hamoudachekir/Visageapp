@@ -1,7 +1,7 @@
 """Diagnose a YOLOv8 skin dataset (local folder or Roboflow download).
 
 Reports per-class image/box counts against the Step 1 floors used to improve
-the 5-class skin detector (acne, blackheads, dark_spots, enlarged_pores, wrinkles).
+the 4-class skin detector (acne, dark_spots, enlarged_pores, wrinkles).
 
 Usage (from backend/)::
 
@@ -20,7 +20,7 @@ from pathlib import Path
 
 import yaml
 
-EXPECTED = ["acne", "blackheads", "dark_spots", "enlarged_pores", "wrinkles"]
+EXPECTED = ["acne", "dark_spots", "enlarged_pores", "wrinkles"]
 MIN_IMAGES = 300
 MIN_BOXES = 500
 
@@ -77,7 +77,7 @@ def diagnose(data_yaml: Path, min_images: int, min_boxes: int) -> int:
     if weak:
         print(f"Priority to fix/grow in Roboflow: {', '.join(weak)}")
         print(
-            "Universe searches: acne, blackheads, dark spots, "
+            "Universe searches: acne, dark spots, "
             "enlarged pores, wrinkles — clone, map names, merge, new version + aug."
         )
         return 1
@@ -101,7 +101,7 @@ def download_roboflow(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Diagnose 5-class skin YOLO dataset")
+    parser = argparse.ArgumentParser(description="Diagnose 4-class skin YOLO dataset")
     parser.add_argument("--data", type=Path, help="Path to data.yaml")
     parser.add_argument("--roboflow-api-key")
     parser.add_argument("--workspace", default="hamoudas-workspace")

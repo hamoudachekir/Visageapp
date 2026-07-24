@@ -12,11 +12,11 @@ Ou utiliser le notebook / script Colab :
 
 IMPORTANT — ordre des classes du dataset (data.yaml) : il doit suivre
 CLASS_TO_CONDITION de app/skin/local.py :
-    0: acne, 1: blackheads, 2: dark_spots, 3: enlarged_pores, 4: wrinkles
+    0: acne, 1: dark_spots, 2: enlarged_pores, 3: wrinkles
 
 Datasets libres : https://universe.roboflow.com (rechercher « acne »,
-« blackheads », « wrinkles », « dark spots », « pores ») ; fusionner les
-exports dans un seul projet Roboflow à 5 classes avant l'entraînement.
+« wrinkles », « dark spots », « pores ») ; fusionner les
+exports dans un seul projet Roboflow à 4 classes avant l'entraînement.
 
 Cibles data (Step 1) : ≥300 images et ≥500 boxes par classe.
 Après export : copier best.onnx → backend/models/best.onnx
@@ -27,7 +27,7 @@ import argparse
 import shutil
 from pathlib import Path
 
-EXPECTED = ["acne", "blackheads", "dark_spots", "enlarged_pores", "wrinkles"]
+EXPECTED = ["acne", "dark_spots", "enlarged_pores", "wrinkles"]
 
 
 def download_from_roboflow(
@@ -121,7 +121,11 @@ def main() -> None:
         format="onnx", nms=True, imgsz=args.imgsz
     )
     dest = Path(results.save_dir) / "weights" / "best.onnx"
-    shutil.copy(onnx_path, dest)
+    onnx_path = Path(onnx_path)
+    if onnx_path.resolve() != dest.resolve():
+        shutil.copy(onnx_path, dest)
+    else:
+        dest = onnx_path
     print(f"Modèle ONNX exporté : {dest}")
     print(
         "Copier ce fichier vers backend/models/best.onnx puis définir "
