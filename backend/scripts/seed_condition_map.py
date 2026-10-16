@@ -36,6 +36,14 @@ CONDITION_SUBS: dict[str, list[tuple[str, int]]] = {
         ("soins-hydratants-nourrissants", 6),
     ],
     "skin_type_oily": [("demaquillants-nettoyants", 5)],
+    "skin_type_combination": [
+        ("soins-peau-grasse-mixte-acne", 8),
+        ("demaquillants-nettoyants", 5),
+    ],
+    "skin_type_normal": [
+        ("soins-hydratants-nourrissants", 8),
+        ("demaquillants-nettoyants", 4),
+    ],
 }
 
 

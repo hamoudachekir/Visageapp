@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from .. import auth as auth_module
-from ..db import get_db
+from ..db import get_catalog_db, get_db
 from ..models import Client, Pharmacy, SkinAnalysis, VisageProduct
 from . import engine as engine_mod
 from . import quality
@@ -49,6 +49,7 @@ async def analyze_skin(
     client_id: int | None = Form(default=None),
     pharmacy: Pharmacy = Depends(auth_module.get_current_pharmacy),
     db: Session = Depends(get_db),
+    catalog_db: Session = Depends(get_catalog_db),
 ) -> SkinAnalyzeResponse:
     """Analyse les 4 photos et renvoie conditions + recommandations produits."""
     client: Client | None = None
@@ -105,7 +106,7 @@ async def analyze_skin(
     age_for_reco = real_age if real_age is not None else estimated_age
 
     mappings = fetch_mappings(db, list(scores) + [f"skin_type_{skin_type}"])
-    products = fetch_products(db, [m["product_id"] for m in mappings])
+    products = fetch_products(catalog_db, [m["product_id"] for m in mappings])
     recommendations = build_recommendations(
         scores,
         skin_type,
@@ -153,6 +154,11 @@ async def analyze_skin(
             price=r.price,
             image_url=r.image_url,
             description=r.description,
+            sub=r.sub,
+            ean=r.ean,
+            source_url=r.source_url,
+            old_price=r.old_price,
+            rating=r.rating,
             reason_fr=r.reason_fr,
             matched_conditions=r.matched_conditions,
         )
@@ -185,11 +191,11 @@ async def analyze_skin(
 @router.get("/v1/skin/brands", response_model=BrandsResponse)
 def list_brands(
     pharmacy: Pharmacy = Depends(auth_module.get_current_pharmacy),
-    db: Session = Depends(get_db),
+    catalog_db: Session = Depends(get_catalog_db),
 ) -> BrandsResponse:
-    """Marques distinctes des produits actifs (catalogue du filtre)."""
+    """Marques distinctes des produits Visage actifs (catalogue Votrepara)."""
     rows = (
-        db.query(VisageProduct.brand)
+        catalog_db.query(VisageProduct.brand)
         .filter(VisageProduct.active.is_(True), VisageProduct.brand.isnot(None))
         .distinct()
         .all()

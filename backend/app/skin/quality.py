@@ -47,6 +47,11 @@ def validate_photo(raw: bytes, photo_name: str) -> None:
     if blur < _blur_threshold():
         raise PhotoQualityError(f"{photo_name} : photo floue.")
 
+    # Gros plan peau : le visage peut être trop cadré pour InsightFace.
+    # On garde luminosité/flou ; Face++ ignore cette photo si aucun visage.
+    if photo_name == "closeup":
+        return
+
     nb_faces = vision.count_faces(img)
     if nb_faces is None:
         return  # modèle CV non chargé : vérification visage sautée

@@ -101,6 +101,9 @@ def test_fetchers_sqlite(db_session):
     products = fetch_products(db_session, [1])
     assert products[1]["name"] == "Crème"
     assert products[1]["price"] == 19.9
+    assert products[1]["sub"] == "soins-anti-age-rides"
+    assert products[1]["description"] is None
+    assert products[1]["ean"] is None
 
 
 def test_filtre_min_max_age():

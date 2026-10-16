@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app import auth as auth_module
-from app.db import Base, get_db
+from app.db import Base, get_catalog_db, get_db
 from app.main import app
 from app.models import ConditionProductMap, Client, Pharmacy, SkinAnalysis, VisageProduct
 from app.skin.analyzer import CONDITION_CODES, FaceppQuotaError, SkinPhotoResult
@@ -72,6 +72,7 @@ def api(monkeypatch):
             s.close()
 
     app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_catalog_db] = override_db
     app.dependency_overrides[auth_module.get_current_pharmacy] = override_pharmacy
 
     monkeypatch.setattr("app.skin.quality.validate_photo", lambda raw, name: None)

@@ -77,7 +77,7 @@ void main() {
     expect(SkinAnalysisResult.fromJson(json).age, isNull);
   });
 
-  test('ProductRecommendation parse la description', () {
+  test('ProductRecommendation parse les détails catalogue Visage', () {
     final json = {
       'analysis_id': 1,
       'skin_type': 'oily',
@@ -88,12 +88,20 @@ void main() {
           'name': 'Gel',
           'reason_fr': 'r',
           'description': 'Nettoie en douceur.',
+          'sub': 'soins-peau-grasse-mixte-acne',
+          'ean': '123',
+          'old_price': 30.0,
+          'rating': 4.5,
           'matched_conditions': [],
         },
       ],
       'disclaimer_fr': 'x',
     };
-    final result = SkinAnalysisResult.fromJson(json);
-    expect(result.recommendations.single.description, 'Nettoie en douceur.');
+    final rec = SkinAnalysisResult.fromJson(json).recommendations.single;
+    expect(rec.description, 'Nettoie en douceur.');
+    expect(rec.sub, 'soins-peau-grasse-mixte-acne');
+    expect(rec.ean, '123');
+    expect(rec.oldPrice, 30.0);
+    expect(rec.rating, 4.5);
   });
 }

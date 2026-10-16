@@ -58,6 +58,11 @@ class Recommendation:
     description: str | None
     reason_fr: str
     matched_conditions: list[str]
+    sub: str | None = None
+    ean: str | None = None
+    source_url: str | None = None
+    old_price: float | None = None
+    rating: float | None = None
 
 
 def build_reason_fr(matched: list[str], scores: dict[str, int], skin_type: str) -> str:
@@ -143,6 +148,11 @@ def build_recommendations(
                 matched_conditions=[
                     c for c in entry["matched"] if not c.startswith("skin_type_")
                 ],
+                sub=product.get("sub"),
+                ean=product.get("ean"),
+                source_url=product.get("source_url"),
+                old_price=product.get("old_price"),
+                rating=product.get("rating"),
             )
         )
     return recommendations
@@ -169,7 +179,7 @@ def fetch_mappings(db: Session, condition_codes: list[str]) -> list[dict]:
 
 
 def fetch_products(db: Session, product_ids: list[int]) -> dict[int, dict]:
-    """Produits par id — prix converti en float (colonne Numeric)."""
+    """Produits Visage par id — détails catalogue (prix converti en float)."""
     if not product_ids:
         return {}
     rows = (
@@ -180,8 +190,13 @@ def fetch_products(db: Session, product_ids: list[int]) -> dict[int, dict]:
             "name": r.name,
             "brand": r.brand,
             "price": float(r.price) if r.price is not None else None,
+            "old_price": float(r.old_price) if r.old_price is not None else None,
+            "rating": float(r.rating) if r.rating is not None else None,
             "image_url": r.image_url,
             "description": r.description,
+            "sub": r.sub,
+            "ean": r.ean,
+            "source_url": r.source_url,
             "in_stock": bool(r.in_stock),
             "active": bool(r.active),
         }

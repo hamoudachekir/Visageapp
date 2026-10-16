@@ -35,3 +35,9 @@ def test_photo_contrastee_acceptee():
     rng = np.random.default_rng(42)
     img = rng.integers(0, 256, size=(300, 300, 3)).astype(np.uint8)
     validate_photo(_jpeg(img), "front")  # ne doit pas lever
+
+
+def test_closeup_sans_visage_accepte_si_nette():
+    rng = np.random.default_rng(7)
+    img = rng.integers(0, 256, size=(300, 300, 3)).astype(np.uint8)
+    validate_photo(_jpeg(img), "closeup")

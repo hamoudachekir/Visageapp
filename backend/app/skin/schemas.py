@@ -17,8 +17,13 @@ class RecommendationOut(BaseModel):
     name: str
     brand: str | None = None
     price: float | None = None
+    old_price: float | None = None
+    rating: float | None = None
     image_url: str | None = None
     description: str | None = None
+    sub: str | None = None
+    ean: str | None = None
+    source_url: str | None = None
     reason_fr: str
     matched_conditions: list[str] = []
 

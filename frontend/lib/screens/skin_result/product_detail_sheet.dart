@@ -60,6 +60,11 @@ class ProductDetailSheet extends StatelessWidget {
           ),
           if (p.brand != null)
             Text(p.brand!, style: Theme.of(context).textTheme.bodySmall),
+          if (p.rating != null)
+            Text(
+              'Note ${p.rating!.toStringAsFixed(1)}/5',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
@@ -72,6 +77,17 @@ class ProductDetailSheet extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
+              if (p.oldPrice != null) ...[
+                const SizedBox(width: 8),
+                Text(
+                  '${p.oldPrice!.toStringAsFixed(3)} TND',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                    decoration: TextDecoration.lineThrough,
+                  ),
+                ),
+              ],
               const Spacer(),
               Container(
                 padding:
@@ -107,6 +123,14 @@ class ProductDetailSheet extends StatelessWidget {
           const SizedBox(height: AppSpacing.xs),
           Text(p.reasonFr,
               style: Theme.of(context).textTheme.bodyMedium),
+          if (p.sub != null && p.sub!.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.md),
+            Text('Catégorie Visage',
+                style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: AppSpacing.xs),
+            Text(p.sub!.replaceAll('-', ' '),
+                style: Theme.of(context).textTheme.bodyMedium),
+          ],
           if (p.description != null && p.description!.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.md),
             Text('Description',
@@ -114,6 +138,11 @@ class ProductDetailSheet extends StatelessWidget {
             const SizedBox(height: AppSpacing.xs),
             Text(p.description!,
                 style: Theme.of(context).textTheme.bodyMedium),
+          ],
+          if (p.ean != null && p.ean!.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text('EAN ${p.ean}',
+                style: Theme.of(context).textTheme.bodySmall),
           ],
           const SizedBox(height: AppSpacing.lg),
           SizedBox(

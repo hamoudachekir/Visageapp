@@ -20,7 +20,7 @@ class PoseGuide extends StatelessWidget {
       case CapturePose.profilDroit:
         return 'Droite';
       case CapturePose.front:
-        return 'Front';
+        return 'Gros plan';
     }
   }
 
@@ -158,7 +158,7 @@ class _PoseGuidePainter extends CustomPainter {
     canvas.restore();
   }
 
-  /// Repères d'angle autour du front (gros plan).
+  /// Repères d'angle autour du visage (gros plan).
   void _cropMarks(Canvas canvas, Size size, Paint accent) {
     final w = size.width;
     const m = 2.0, len = 8.0;

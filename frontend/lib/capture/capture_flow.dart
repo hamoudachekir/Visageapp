@@ -44,7 +44,7 @@ class CaptureFlow extends ConsumerWidget {
     }
 
     // Correspondance poses locales -> champs du backend :
-    // face -> front, profils -> left/right, gros plan du front -> closeup.
+    // face -> front, profils -> left/right, gros plan visage -> closeup.
     final front = fileFor(CapturePose.face);
     final left = fileFor(CapturePose.profilGauche);
     final right = fileFor(CapturePose.profilDroit);

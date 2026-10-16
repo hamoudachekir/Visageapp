@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Les 4 vues à capturer, dans l'ordre : face, profils, puis gros plan du front.
+/// Les 4 vues à capturer, dans l'ordre : face, profils, puis gros plan visage.
 enum CapturePose { face, profilGauche, profilDroit, front }
 
 /// Libellé court utilisé dans les vignettes (capture, validation).
@@ -13,7 +13,7 @@ String shortPoseLabel(CapturePose pose) {
     case CapturePose.profilDroit:
       return 'Profil D.';
     case CapturePose.front:
-      return 'Front';
+      return 'Gros plan';
   }
 }
 
@@ -80,18 +80,18 @@ const List<PoseConfig> kCaptureFlow = [
     yawMin: -58,
     yawMax: -30,
   ),
-  // Gros plan du front : visage droit mais TRÈS rapproché (minFaceRatio élevé),
-  // pour capturer le détail de la peau du front. Tolérance pitch large car on
-  // penche souvent un peu la tête pour présenter le front.
+  // Gros plan peau : plus près que la vue de face, mais yeux + nez + bouche
+  // restent visibles (Face++ / InsightFace ont besoin d'un visage complet).
   PoseConfig(
     pose: CapturePose.front,
-    label: 'Vue du front (gros plan)',
-    instruction: 'Rapprochez le visage de la caméra pour cadrer le front',
+    label: 'Gros plan visage',
+    instruction:
+        'Rapprochez-vous : yeux, nez et bouche visibles dans le cadre',
     icon: Icons.center_focus_strong,
-    yawMin: -14,
-    yawMax: 14,
-    pitchTol: 22,
-    minFaceRatio: 0.22,
-    maxFaceRatio: 0.9,
+    yawMin: -12,
+    yawMax: 12,
+    pitchTol: 14,
+    minFaceRatio: 0.14,
+    maxFaceRatio: 0.62,
   ),
 ];

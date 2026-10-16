@@ -55,20 +55,30 @@ class ProductRecommendation {
   final String name;
   final String? brand;
   final double? price;
+  final double? oldPrice;
+  final double? rating;
   final String? imageUrl;
   final String reasonFr;
   final List<String> matchedConditions;
   final String? description;
+  final String? sub;
+  final String? ean;
+  final String? sourceUrl;
 
   const ProductRecommendation({
     required this.productId,
     required this.name,
     this.brand,
     this.price,
+    this.oldPrice,
+    this.rating,
     this.imageUrl,
     required this.reasonFr,
     this.matchedConditions = const [],
     this.description,
+    this.sub,
+    this.ean,
+    this.sourceUrl,
   });
 
   factory ProductRecommendation.fromJson(Map<String, dynamic> json) {
@@ -77,11 +87,16 @@ class ProductRecommendation {
       name: json['name'] as String? ?? '',
       brand: json['brand'] as String?,
       price: (json['price'] as num?)?.toDouble(),
+      oldPrice: (json['old_price'] as num?)?.toDouble(),
+      rating: (json['rating'] as num?)?.toDouble(),
       imageUrl: json['image_url'] as String?,
       reasonFr: json['reason_fr'] as String? ?? '',
       matchedConditions:
           (json['matched_conditions'] as List?)?.cast<String>() ?? const [],
       description: json['description'] as String?,
+      sub: json['sub'] as String?,
+      ean: json['ean'] as String?,
+      sourceUrl: json['source_url'] as String?,
     );
   }
 }
